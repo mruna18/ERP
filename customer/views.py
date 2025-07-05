@@ -2,9 +2,11 @@ from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializer import RegisterSerializer
+from .serializer import *
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
+from .models import *
+
 
 class RegisterView(APIView):
     def post(self, request):
@@ -42,3 +44,26 @@ class LoginView(APIView):
                 return Response({'error': 'Invalid credentials'}, status=401)
         except User.DoesNotExist:
             return Response({'error': 'User with this email does not exist'}, status=404)
+
+
+class CustomerCreateView(APIView):
+    def post(self, request):
+        serializer = CustomerSerializer(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+
+            # 1. Create a user in auth_user
+            user = User.objects.create_user(
+                username=data['username'],
+                password=data['password']
+            )
+
+            # 2. Create a customer linked to this user
+            customer = Customer.objects.create(
+                user=user,
+                phone=data['phone'],
+                address=data['address']
+            )
+
+            return Response({'msg': 'Customer created successfully'}, status=201)
+        return Response(serializer.errors, status=400)
