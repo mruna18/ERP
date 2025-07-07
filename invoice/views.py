@@ -100,35 +100,53 @@ class UpdateInvoiceView(APIView):
     def put(self, request, pk):
         customer = Customer.objects.filter(user=request.user).first()
         if not customer or not customer.selected_company:
-            return Response({"detail": "Customer or selected company not found."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Customer or selected company not found."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         try:
             invoice = Invoice.objects.get(pk=pk, company=customer.selected_company)
         except Invoice.DoesNotExist:
-            return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Invoice not found."},
+                            status=status.HTTP_404_NOT_FOUND)
 
         serializer = InvoiceSerializer(invoice, data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        party = serializer.validated_data.get("party")
-        items_data = request.data.get("items", [])
-
+        validated_data = serializer.validated_data
+        party = validated_data.get("party")
         if party.company != customer.selected_company:
-            return Response({"detail": "Invalid party for selected company."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Invalid party for selected company."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        items_data = request.data.get("items", [])
+        if not items_data:
+            return Response({"detail": "At least one item is required."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         subtotal = 0
         tax_total = 0
 
         with transaction.atomic():
             invoice.party = party
-            invoice.notes = serializer.validated_data.get("notes", "")
-            invoice.invoice_number = serializer.validated_data.get("invoice_number")
-            invoice.items.all().delete()  # Delete old items
+            invoice.invoice_number = validated_data.get("invoice_number")
+            invoice.notes = validated_data.get("notes", "")
+            invoice.items.all().delete()  # Delete previous items
 
             for item_data in items_data:
-                item_obj = Item.objects.get(id=item_data["item"], company=customer.selected_company)
-                quantity = item_data["quantity"]
-                rate = item_data["rate"]
+                item_id = item_data.get("item")
+                quantity = item_data.get("quantity")
+                rate = item_data.get("rate")
+
+                if not all([item_id, quantity, rate]):
+                    return Response({"detail": "Each item must include item, quantity, and rate."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+
+                try:
+                    item_obj = Item.objects.get(id=item_id, company=customer.selected_company)
+                except Item.DoesNotExist:
+                    return Response({"detail": f"Item with id {item_id} not found for this company."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+
                 amount = quantity * rate
                 tax = amount * (item_obj.tax_percent / 100) if item_obj.tax_applied else 0
 
@@ -148,7 +166,11 @@ class UpdateInvoiceView(APIView):
             invoice.total = subtotal + tax_total
             invoice.save()
 
-        return Response({"msg": "Invoice updated", "invoice_id": invoice.id})
+        return Response({
+            "msg": "Invoice updated successfully",
+            "invoice_id": invoice.id,
+            "total": invoice.total
+        }, status=status.HTTP_200_OK)
 
 
 class DeleteInvoiceView(APIView):
