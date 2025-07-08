@@ -16,17 +16,12 @@ class Company(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
-    is_active = models.BooleanField(default=True) 
+    is_active = models.BooleanField(default=True) #deleted
     
     # class Meta:
     #     unique_together = ('name', 'gst_number')  # No duplicate company name per owner
 
-    class Meta:
-      constraints = [
-        models.UniqueConstraint(fields=['gst_number'], condition=Q(is_active=True), name='unique_active_gst'),
-        models.UniqueConstraint(fields=['phone'], condition=Q(is_active=True), name='unique_active_phone'),
-    ]
-
+  
     def __str__(self):
         return self.name
     

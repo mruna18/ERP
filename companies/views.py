@@ -6,6 +6,22 @@ from .models import *
 from .serializers import *
 from customer.models import Customer
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from companies.models import Company
+from customer.models import Customer
+from companies.serializers import CompanySerializer
+import re
+
+import re
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from companies.models import Company
+from customer.models import Customer
+from companies.serializers import CompanySerializer
+
 class CreateCompanyView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -15,20 +31,53 @@ class CreateCompanyView(APIView):
         except Customer.DoesNotExist:
             return Response({"error": "Customer profile not found"}, status=404)
 
-        # Enforce company creation limit
+        # Check company limit
         if customer.companies.count() >= customer.company_limit:
             return Response({"error": "Company creation limit reached"}, status=403)
 
-        # Check duplicate company
-        if Company.objects.filter(name=request.data.get('name'), gst_number=request.data.get('gst_number'), owner=customer, is_active=True).exists():
+        # Manual field extraction
+        company_name = request.data.get('name')
+        gst_number = request.data.get('gst_number')
+        phone = request.data.get('phone')
+
+       
+        if not company_name:
+            return Response({"error": "Company name is required."}, status=400)
+
+        if not gst_number:
+            return Response({"error": "GST number is required."}, status=400)
+
+        if not phone:
+            return Response({"error": "Phone number is required."}, status=400)
+
+        if not re.fullmatch(r"\d{10}", phone):
+            return Response({"error": "Phone number must be exactly 10 digits."}, status=400)
+
+        # Check for duplicate phone or gst_number
+        if Company.objects.filter(phone=phone, owner=customer, is_active=True).exists():
+            return Response({"error": "Company with this phone already exists."}, status=400)
+
+        if Company.objects.filter(gst_number=gst_number, owner=customer, is_active=True).exists():
+            return Response({"error": "Company with this GST number already exists."}, status=400)
+
+        if Company.objects.filter(name=company_name, gst_number=gst_number, owner=customer, is_active=True).exists():
             return Response({"error": "Company with same name and GST already exists for this user"}, status=400)
 
-        serializer = CompanySerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(user=request.user, owner=customer)
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
+        # All validations passed → Create company
+        company = Company.objects.create(
+            name=company_name,
+            gst_number=gst_number,
+            phone=phone,
+            address=request.data.get('address', ''),
+            user=request.user,
+            owner=customer,
+        )
 
+        return Response({
+            "msg": "Company created successfully",
+            "company_id": company.id,
+            "name": company.name
+        }, status=201)
 
 # Helper function to get logged-in customer
 def get_customer(user):

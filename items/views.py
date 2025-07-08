@@ -1,13 +1,12 @@
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
-
 from .models import Item
-from .serializer import ItemSerializer
+from .serializer import *
 from customer.models import Customer
-
+from companies.models import Company
 
 class ItemCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -16,17 +15,28 @@ class ItemCreateView(APIView):
         serializer = ItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        customer_id = request.data.get("customer_id")
+        company_id = request.data.get("company")
+
+        # Check for required fields
+        if not customer_id:
+            return Response({"error": "Customer ID is required."}, status=400)
+        if not company_id:
+            return Response({"error": "Company ID is required."}, status=400)
+
+        # Validate customer and company
         try:
-            customer = Customer.objects.get(user=request.user)
+            customer = Customer.objects.get(id=customer_id)
         except Customer.DoesNotExist:
-            return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Customer not found."}, status=404)
 
-        selected_company = customer.selected_company
-        if not selected_company:
-            return Response({"detail": "No company selected."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            company = Company.objects.get(id=company_id, owner=customer, is_active=True)
+        except Company.DoesNotExist:
+            return Response({"error": "Company not found or doesn't belong to this customer."}, status=404)
 
+        # Extract and validate fields
         data = serializer.validated_data
-
         try:
             name = data.get("name")
             code = data.get("code")
@@ -36,16 +46,18 @@ class ItemCreateView(APIView):
             sales_price = float(data.get("sales_price", 0))
             tax_applied = data.get("tax_applied", False)
             tax_percent = float(data.get("tax_percent", 0))
+            unit_type = data.get("unit")  # assuming unit is FK now
         except (TypeError, ValueError):
-            return Response({"detail": "Invalid input type for numeric fields."}, status=400)
+            return Response({"error": "Invalid input type for numeric fields."}, status=400)
 
         if price > 1e7 or sales_price > 1e7:
-            return Response({"detail": "Price or Sales Price is too large."}, status=400)
+            return Response({"error": "Price or Sales Price is too large."}, status=400)
 
-        # Apply tax if needed
+        # Calculate final prices
         final_price = price + (price * tax_percent / 100) if tax_applied else price
         final_sales_price = sales_price + (sales_price * tax_percent / 100) if tax_applied else sales_price
 
+        # Save item
         with transaction.atomic():
             item = Item.objects.create(
                 name=name,
@@ -56,12 +68,13 @@ class ItemCreateView(APIView):
                 sales_price=round(final_sales_price, 2),
                 tax_applied=tax_applied,
                 tax_percent=round(tax_percent, 2),
-                company=selected_company,
+                unit=unit_type,
+                company=company,
                 created_by=request.user,
                 is_active=True
             )
 
-        return Response({"msg": "Item created", "id": item.id}, status=status.HTTP_201_CREATED)
+        return Response({"msg": "Item created successfully", "id": item.id}, status=status.HTTP_201_CREATED)
 
 
 # list

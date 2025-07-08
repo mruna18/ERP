@@ -1,25 +1,30 @@
 from django.db import models
 from companies.models import Company
 from django.conf import settings
-from decimal import Decimal
 
+# ------------------------------
+# UnitType Model
+# ------------------------------
+class UnitType(models.Model):
+    name = models.CharField(max_length=50, unique=True)  # e.g., "Pieces", "Kilogram"
+    code = models.CharField(max_length=10, unique=True)  # e.g., "pcs", "kg"
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+# ------------------------------
+# Item Model
+# ------------------------------
 class Item(models.Model):
-    UNIT_CHOICES = [
-        ('pcs', 'Pieces'),
-        ('kg', 'Kilogram'),
-        ('ltr', 'Litre'),
-        ('box', 'Box'),
-        ('unit', 'Unit'),
-    ]
-
     name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True, null=True)
+    
     quantity = models.PositiveIntegerField(default=0)
-    unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='pcs')
+    unit = models.ForeignKey(UnitType, on_delete=models.PROTECT, related_name="items")
 
     price = models.FloatField()
-    sales_price = models.FloatField()  # ✅ New field
+    sales_price = models.FloatField()
 
     tax_applied = models.BooleanField(default=False)
     tax_percent = models.FloatField()

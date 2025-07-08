@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Item
+from .models import *
 
 class ItemAdmin(admin.ModelAdmin):
     list_display = (
@@ -19,3 +19,11 @@ class ItemAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
 
 admin.site.register(Item, ItemAdmin)
+
+
+class UnitTypeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'code')
+    search_fields = ('name', 'code')
+    
+
+admin.site.register(UnitType, UnitTypeAdmin)
