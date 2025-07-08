@@ -50,6 +50,16 @@ class CreateInvoiceView(APIView):
                     return Response({"detail": f"Item {item_data['item']} not found for selected company."}, status=status.HTTP_404_NOT_FOUND)
 
                 quantity = item_data["quantity"]
+
+                if item_obj.quantity < quantity:
+                    return Response(
+                        {"detail": f"Insufficient stock for item '{item_obj.name}'"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                item_obj.quantity -= quantity
+                item_obj.save()
+
                 rate = item_data["rate"]
                 amount = quantity * rate
                 tax = amount * (item_obj.tax_percent / 100) if item_obj.tax_applied else 0
