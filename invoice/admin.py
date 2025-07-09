@@ -1,25 +1,41 @@
 from django.contrib import admin
-from .models import Invoice, InvoiceItem
+from .models import Invoice, InvoiceItem, InvoiceType
+from companies.models import Company
+from items.models import Item
 
+# Inline for adding InvoiceItems within Invoice admin
 class InvoiceItemInline(admin.TabularInline):
     model = InvoiceItem
     extra = 1
+    fields = ['item', 'quantity', 'rate', 'amount']
     readonly_fields = ['amount']
-    fields = ['item', 'quantity', 'sales_price', 'discount', 'amount']
 
+# Admin for InvoiceItem list
+class InvoiceItemAdmin(admin.ModelAdmin):
+    list_display = ['id', 'invoice_number', 'item_name', 'quantity','discount_percent','discount_amount','rate', 'amount']
+
+    def invoice_number(self, obj):
+        return obj.invoice.invoice_number
+    invoice_number.short_description = 'Invoice No.'
+
+    def item_name(self, obj):
+        return obj.item.name
+    item_name.short_description = 'Item'
+
+# Admin for Invoice
 class InvoiceAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'invoice_number', 'company', 'party',
-        'subtotal', 'discount_amount', 'tax_amount',
-        'total', 'date', 'is_active'
+        'id', 'invoice_number', 'company', 'party','discount_percent','discount_amount',
+        'invoice_type', 'subtotal', 'tax_amount',
+        'total', 'created_at'
     )
     inlines = [InvoiceItemInline]
 
-    def discount_amount(self, obj):
-        return sum(
-            item.quantity * item.sales_price * (item.discount / 100)
-            for item in obj.items.all()
-        )
-    discount_amount.short_description = "Discount Amount"
+# Admin for InvoiceType
+class InvoiceTypeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'code')
 
+# Registering all models
 admin.site.register(Invoice, InvoiceAdmin)
+admin.site.register(InvoiceItem, InvoiceItemAdmin)
+admin.site.register(InvoiceType, InvoiceTypeAdmin)

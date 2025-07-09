@@ -2,50 +2,45 @@ from django.db import models
 from django.conf import settings
 from companies.models import Company
 from items.models import Item
-from parties.models import Party  
+from parties.models import Party
+
+
+class InvoiceType(models.Model):
+    name = models.CharField(max_length=50, unique=True)  # e.g., "Sales Invoice"
+    code = models.CharField(max_length=20, unique=True)  # e.g., "sales", "purchase"
+
+    def __str__(self):
+        return self.name
 
 
 class Invoice(models.Model):
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="invoices")
-    party = models.ForeignKey(Party, on_delete=models.CASCADE, related_name="invoices")
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="created_invoices"
-    )
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    party = models.ForeignKey(Party, on_delete=models.CASCADE)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    invoice_number = models.CharField(max_length=50)
+    discount_percent = models.FloatField(default=0.0)
+    discount_amount = models.FloatField(default=0.0)
 
-    invoice_number = models.CharField(max_length=100, unique=True)
-    date = models.DateField(auto_now_add=True)
+    invoice_type = models.ForeignKey(InvoiceType, on_delete=models.PROTECT)
 
-    subtotal = models.FloatField(default=0.0)     # Before tax, after discounts
-    tax_amount = models.FloatField(default=0.0)   # Total tax on invoice
-    total = models.FloatField(default=0.0)        # Final total (subtotal + tax)
-
-    notes = models.TextField(blank=True, null=True)
-    is_active = models.BooleanField(default=True)
-
+    notes = models.TextField(blank=True)
+    subtotal = models.FloatField(default=0)
+    tax_amount = models.FloatField(default=0)
+    total = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Invoice #{self.invoice_number} - {self.company.name}"
+        return f"{self.invoice_number} ({self.invoice_type.code})"
 
 
 class InvoiceItem(models.Model):
-    invoice = models.ForeignKey("Invoice", on_delete=models.CASCADE, related_name="items")
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
-
-    quantity = models.FloatField(default=1)
-    sales_price = models.FloatField()  
-    discount = models.FloatField(default=0.0)  
-    amount = models.FloatField()  
-
-    def save(self, *args, **kwargs):
-        raw_total = self.sales_price * self.quantity
-        self.amount = raw_total - self.discount
-        super().save(*args, **kwargs)
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="items")
+    item = models.ForeignKey(Item, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    rate = models.FloatField() 
+    amount = models.FloatField()
+    discount_percent = models.FloatField(default=0.0)  # e.g. 10 for 10%
+    discount_amount = models.FloatField(default=0.0) 
 
     def __str__(self):
-        return f"{self.item.name} - {self.quantity} x {self.sales_price}"
+        return f"{self.item.name} x {self.quantity}"
