@@ -14,7 +14,7 @@ class InvoiceType(models.Model):
 
 
 class Invoice(models.Model):
-    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='invoices')
     party = models.ForeignKey(Party, on_delete=models.CASCADE)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     invoice_number = models.CharField(max_length=50)
@@ -28,7 +28,7 @@ class Invoice(models.Model):
     tax_amount = models.FloatField(default=0)
     total = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    is_deleted = models.BooleanField(default=False)  
     def __str__(self):
         return f"{self.invoice_number} ({self.invoice_type.code})"
 
@@ -41,6 +41,7 @@ class InvoiceItem(models.Model):
     amount = models.FloatField()
     discount_percent = models.FloatField(default=0.0)  # e.g. 10 for 10%
     discount_amount = models.FloatField(default=0.0) 
-
+# Optionally add:
+    # is_deleted = models.BooleanField(default=False)
     def __str__(self):
         return f"{self.item.name} x {self.quantity}"

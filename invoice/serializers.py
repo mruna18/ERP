@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import Invoice, InvoiceItem
-from companies.serializers import CompanySerializer
-from parties.serializers import PartySerializer
+from .models import *
+from companies.serializers import *
+from parties.serializers import *
 from items.serializer import *
 
 
@@ -38,6 +38,12 @@ from items.serializer import *
 #         ]
 
 class InvoiceSerializer(serializers.ModelSerializer):
+    
+    party = serializers.PrimaryKeyRelatedField(queryset=Party.objects.all())
+    invoice_type = serializers.PrimaryKeyRelatedField(queryset=InvoiceType.objects.all())
     class Meta:
         model = Invoice
-        fields = ['company', 'party', 'invoice_number', 'notes']  
+        fields = ['company', 'party', 'invoice_number', 'notes','invoice_type']  
+        extra_kwargs = {
+            "invoice_number": {"required": False}
+        }

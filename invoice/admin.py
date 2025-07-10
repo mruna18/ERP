@@ -27,7 +27,7 @@ class InvoiceAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'invoice_number', 'company', 'party','discount_percent','discount_amount',
         'invoice_type', 'subtotal', 'tax_amount',
-        'total', 'created_at'
+        'total', 'created_at','is_deleted'
     )
     inlines = [InvoiceItemInline]
 
