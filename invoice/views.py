@@ -10,9 +10,7 @@ from items.models import Item
 from customer.models import Customer
 from parties.models import *
 from .serializers import *
-
 from django.db.models import Max
-from .models import *
 from .utils import *
 
 
@@ -162,7 +160,7 @@ class InvoiceListView(APIView):
     def post(self, request):
         company_id = request.data.get("company")
         if not company_id:
-            return Response({"detail": "Company ID is required."}, status=400)
+            return Response({"detail": "Company ID is required.", "status":500})
 
         invoices = (
             Invoice.objects
@@ -255,12 +253,12 @@ class UpdateInvoiceView(APIView):
     def put(self, request, pk):
         company_id = request.data.get("company")
         if not company_id:
-            return Response({"detail": "Company ID is required."}, status=400)
+            return Response({"detail": "Company ID is required.", "status":500})
 
         try:
             invoice = Invoice.objects.get(pk=pk, company_id=company_id)
         except Invoice.DoesNotExist:
-            return Response({"detail": "Invoice not found for this company."}, status=404)
+            return Response({"detail": "Invoice not found for this company.", "status":500})
 
         serializer = InvoiceSerializer(invoice, data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -268,18 +266,18 @@ class UpdateInvoiceView(APIView):
 
         party = data.get("party")
         if party.company_id != int(company_id):
-            return Response({"detail": "Invalid party for the given company."}, status=400)
+            return Response({"detail": "Invalid party for the given company.", "status":500})
 
         invoice_type = data.get("invoice_type")
         if not invoice_type:
-            return Response({"detail": "Invoice type is required."}, status=400)
+            return Response({"detail": "Invoice type is required.", "status":500})
 
         is_purchase = invoice_type.code.lower() == "purchase"
         is_sales = invoice_type.code.lower() == "sales"
 
         items_data = request.data.get("items", [])
         if not items_data:
-            return Response({"detail": "At least one item is required."}, status=400)
+            return Response({"detail": "At least one item is required.", "status":500})
 
         invoice_discount_percent = float(request.data.get("discount_percent", 0.0))
         subtotal = 0.0
@@ -294,7 +292,7 @@ class UpdateInvoiceView(APIView):
                 try:
                     item_obj = Item.objects.get(id=item_data["item"], company_id=company_id)
                 except Item.DoesNotExist:
-                    return Response({"detail": f"Item {item_data['item']} not found for this company."}, status=400)
+                    return Response({"detail": f"Item {item_data['item']} not found for this company.", "status":500})
 
                 quantity = item_data["quantity"]
                 discount_percent = float(item_data.get("discount_percent", 0.0))
@@ -387,16 +385,16 @@ class DeleteInvoiceView(APIView):
     def delete(self, request, pk):
         company_id = request.data.get("company")
         if not company_id:
-            return Response({"detail": "Company ID is required."}, status=400)
+            return Response({"detail": "Company ID is required.", "status":500})
 
         try:
             invoice = Invoice.objects.get(pk=pk, company_id=company_id, is_deleted=False)
         except Invoice.DoesNotExist:
-            return Response({"detail": "Invoice not found for this company."}, status=404)
+            return Response({"detail": "Invoice not found for this company.", "status":500})
 
         invoice.is_deleted = True
         invoice.save()
 
-        return Response({"msg": "Invoice soft-deleted successfully."}, status=200)
+        return Response({"msg": "Invoice soft-deleted successfully.", "status":200})
 
 
