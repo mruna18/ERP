@@ -58,7 +58,8 @@ class Invoice(models.Model):
     amount_paid = models.FloatField(default=0.0)
     remaining_balance = models.FloatField(default=0.0)
 
-    payment_mode = models.ForeignKey('PaymentMode', on_delete=models.SET_NULL, null=True, blank=True)
+    # payment_mode = models.ForeignKey('PaymentMode', on_delete=models.SET_NULL, null=True, blank=True)
+    payment_modes = models.ManyToManyField('PaymentMode', blank=True)
     payment_type = models.ForeignKey('PaymentType', on_delete=models.SET_NULL, null=True, blank=True)
     payment_status = models.ForeignKey('PaymentStatus', on_delete=models.SET_NULL, null=True, blank=True)
     bank_account = models.ForeignKey('BankAccount', on_delete=models.SET_NULL, null=True, blank=True)
@@ -104,20 +105,20 @@ class BankAccount(models.Model):
 
 
 
-class BankTransaction(models.Model):
-    TRANSACTION_TYPE_CHOICES = (
-        ('credit', 'Credit'),  # money added to the bank
-        ('debit', 'Debit'),    # money taken from the bank
-    )
+# class BankTransaction(models.Model):
+#     TRANSACTION_TYPE_CHOICES = (
+#         ('credit', 'Credit'),  # money added to the bank
+#         ('debit', 'Debit'),    # money taken from the bank
+#     )
 
-    bank_account = models.ForeignKey('BankAccount', on_delete=models.CASCADE, related_name='transactions')
-    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
-    amount = models.FloatField()
-    date = models.DateField(auto_now_add=True)
-    related_invoice = models.ForeignKey('Invoice', on_delete=models.SET_NULL, null=True, blank=True)  # Optional
-    description = models.TextField(blank=True, null=True)
+#     bank_account = models.ForeignKey('BankAccount', on_delete=models.CASCADE, related_name='transactions')
+#     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
+#     amount = models.FloatField()
+#     date = models.DateField(auto_now_add=True)
+#     related_invoice = models.ForeignKey('Invoice', on_delete=models.SET_NULL, null=True, blank=True)  # Optional
+#     description = models.TextField(blank=True, null=True)
 
-    balance_after_transaction = models.FloatField(null=True, blank=True)
+#     balance_after_transaction = models.FloatField(null=True, blank=True)
 
     # def save(self, *args, **kwargs):
     #     # Optional logic to auto-compute `balance_after_transaction`
@@ -134,7 +135,7 @@ class BankTransaction(models.Model):
 
     #     super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f"{self.transaction_type.title()} ₹{self.amount} on {self.date}"
+    # def __str__(self):
+    #     return f"{self.transaction_type.title()} ₹{self.amount} on {self.date}"
 
 

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import *
-from companies.models import Company
-from items.models import Item
+from companies.models import *
+from items.models import *
 
 
 # ---------- Inline ----------
@@ -32,10 +32,11 @@ class InvoiceAdmin(admin.ModelAdmin):
         'id', 'invoice_number', 'company', 'party', 'invoice_type',
         'subtotal', 'tax_amount', 'total',
         'amount_paid', 'remaining_balance',
-        'payment_mode', 'payment_type', 'payment_status', 'bank_account',
+         'payment_type', 'payment_status', 'bank_account',
         'created_at', 'is_deleted'
     )
-    list_filter = ('company', 'invoice_type', 'payment_status', 'payment_mode', 'payment_type')
+    filter_horizontal = ('payment_modes',) 
+    list_filter = ('company', 'invoice_type', 'payment_status', 'payment_type')
     search_fields = ('invoice_number', 'party__name')
     inlines = [InvoiceItemInline]
 
@@ -63,13 +64,13 @@ class BankAccountAdmin(admin.ModelAdmin):
 
 
 # ---------- BankTransaction Admin ----------
-class BankTransactionAdmin(admin.ModelAdmin):
-    list_display = (
-        'id', 'bank_account', 'transaction_type', 'amount',
-        'balance_after_transaction', 'related_invoice', 'date'
-    )
-    list_filter = ('transaction_type', 'date', 'bank_account')
-    search_fields = ('bank_account__bank_name', 'related_invoice__invoice_number')
+# class BankTransactionAdmin(admin.ModelAdmin):
+#     list_display = (
+#         'id', 'bank_account', 'transaction_type', 'amount',
+#         'balance_after_transaction', 'related_invoice', 'date'
+#     )
+#     list_filter = ('transaction_type', 'date', 'bank_account')
+#     search_fields = ('bank_account__bank_name', 'related_invoice__invoice_number')
 
 
 # ---------- Registering All ----------
@@ -80,5 +81,5 @@ admin.site.register(PaymentMode, PaymentModeAdmin)
 admin.site.register(PaymentType, PaymentTypeAdmin)
 admin.site.register(PaymentStatus, PaymentStatusAdmin)
 admin.site.register(BankAccount, BankAccountAdmin)
-admin.site.register(BankTransaction, BankTransactionAdmin)
+# admin.site.register(BankTransaction, BankTransactionAdmin)
   

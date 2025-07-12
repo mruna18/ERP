@@ -18,3 +18,4 @@ def generate_invoice_number(company):
 
     next_number = str(last_number + 1).zfill(3)
     return f"{prefix}{next_number}"
+
