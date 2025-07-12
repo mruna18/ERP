@@ -47,3 +47,13 @@ class InvoiceSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "invoice_number": {"required": False}
         }
+
+
+
+class BankAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankAccount
+        # exclude = ['deleted']  # Hides the 'deleted' field
+        fields ='__all__'
+
+

@@ -20,6 +20,108 @@ from .utils import *
 #     return f"INV-{company.id:03d}-{next_id:05d}"
 
 
+class GETCompanyBankAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        company_id = request.data.get("company")
+        if not company_id:
+            return Response({
+                "status": 500,
+                "message": "Missing 'company' in request body.",
+                "data": []
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        accounts = BankAccount.objects.filter(company_id=company_id, deleted=False)
+        serializer = BankAccountSerializer(accounts, many=True)
+        return Response({
+            "status": 200,
+            "message": "Bank accounts fetched successfully.",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class POSTCompanyBankAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = BankAccountSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": 200,
+                "message": "Bank account created successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "status": 500,
+            "message": "Invalid data. Bank account creation failed.",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+class UpdateBankAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+        company_id = request.data.get("company")
+        if not company_id:
+            return Response({
+                "status": 500,
+                "message": "Missing 'company' in request body."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            bank_account = BankAccount.objects.get(pk=pk, company_id=company_id, deleted=False)
+        except BankAccount.DoesNotExist:
+            return Response({
+                "status": 500,
+                "message": "Bank account not found for this company or already deleted."
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = BankAccountSerializer(bank_account, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": 200,
+                "message": "Bank account updated successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "status": 400,
+            "message": "Invalid data.",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteBankAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        company_id = request.data.get("company")
+        if not company_id:
+            return Response({
+                "status": 400,
+                "message": "Missing 'company' in request body."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            bank_account = BankAccount.objects.get(pk=pk, company_id=company_id, deleted=False)
+        except BankAccount.DoesNotExist:
+            return Response({
+                "status": 500,
+                "message": "Bank account not found for this company or already deleted."
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        bank_account.deleted = True
+        bank_account.save()
+
+        return Response({
+            "status": 200,
+            "message": "Bank account soft-deleted successfully."
+        }, status=status.HTTP_200_OK)
+
+#!##################################INVOICE##############################################
 class CreateInvoiceView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -39,13 +141,39 @@ class CreateInvoiceView(APIView):
         items_data = request.data.get("items", [])
         invoice_discount_percent = float(request.data.get("discount_percent", 0.0))
 
+        amount_paid = float(request.data.get("amount_paid", 0.0))
+        payment_mode_id = request.data.get("payment_mode")
+        payment_type_id = request.data.get("payment_type")
+        bank_account_id = request.data.get("bank_account")
+
         if party.company_id != company.id:
-            return Response({"detail": "Party does not belong to the provided company.", "status": 500})
+            return Response({"detail": "Party does not belong to the selected company.", "status": 400})
 
         try:
             invoice_type = InvoiceType.objects.get(id=invoice_type_id)
         except InvoiceType.DoesNotExist:
-            return Response({"detail": "Invalid invoice type.", "status": 500})
+            return Response({"detail": "Invalid invoice type.", "status": 400})
+
+        payment_mode = PaymentMode.objects.filter(id=payment_mode_id).first()
+        payment_type = PaymentType.objects.filter(id=payment_type_id).first()
+        bank_account = None
+
+        # Validate bank account if provided
+        if bank_account_id:
+            try:
+                bank_account = BankAccount.objects.get(id=bank_account_id, company=company, deleted=False)
+            except BankAccount.DoesNotExist:
+                return Response({
+                    "detail": "Invalid or unauthorized bank account for this company.",
+                    "status": 400
+                })
+
+        # Require bank account for non-cash payment if amount is paid
+        if amount_paid > 0 and payment_type and payment_type.name.lower() != "cash in hand" and not bank_account:
+            return Response({
+                "detail": "Bank account is required for non-cash payments.",
+                "status": 400
+            })
 
         is_purchase = invoice_type.code.lower() == "purchase"
         is_sales = invoice_type.code.lower() == "sales"
@@ -59,8 +187,8 @@ class CreateInvoiceView(APIView):
                 item_obj = Item.objects.get(id=item_data["item"], company=company)
             except Item.DoesNotExist:
                 return Response({
-                    "detail": f"Item {item_data['item']} not found in the selected company.",
-                    "status": 500
+                    "detail": f"Item {item_data['item']} not found in this company.",
+                    "status": 400
                 })
 
             quantity = item_data["quantity"]
@@ -75,7 +203,6 @@ class CreateInvoiceView(APIView):
             base_amount = quantity * rate
             item_discount_amount = base_amount * (discount_percent / 100)
             taxable_amount = base_amount - item_discount_amount
-
             subtotal += taxable_amount
 
             item_rows.append({
@@ -102,7 +229,11 @@ class CreateInvoiceView(APIView):
                 invoice_type=invoice_type,
                 notes=notes,
                 discount_percent=invoice_discount_percent,
-                discount_amount=invoice_discount_amount
+                discount_amount=invoice_discount_amount,
+                payment_mode=payment_mode,
+                payment_type=payment_type,
+                bank_account=bank_account,
+                amount_paid=amount_paid
             )
 
             for row in item_rows:
@@ -140,16 +271,46 @@ class CreateInvoiceView(APIView):
             invoice.subtotal = subtotal
             invoice.tax_amount = tax_total
             invoice.total = invoice_total
+            invoice.remaining_balance = max(invoice_total - amount_paid, 0)
+
+            if amount_paid == 0:
+                invoice.payment_status_id = 1  # Unpaid
+            elif amount_paid < invoice_total:
+                invoice.payment_status_id = 2  # Partially Paid
+            else:
+                invoice.payment_status_id = 3  # Paid
+
             invoice.save()
+
+            # Create bank transaction only for on_account and if bank provided
+            if (
+                amount_paid > 0 and
+                payment_mode and payment_mode.code == 'on_account' and
+                bank_account
+            ):
+                BankTransaction.objects.create(
+                    bank_account=bank_account,
+                    transaction_type='debit',
+                    amount=amount_paid,
+                    related_invoice=invoice,
+                    description=f"Payment for Invoice #{invoice.invoice_number}",
+                    balance_after_transaction=bank_account.current_balance - amount_paid
+                )
+                bank_account.current_balance -= amount_paid
+                bank_account.save()
 
         return Response({
             "msg": "Invoice created successfully",
             "invoice_id": invoice.id,
             "invoice_number": invoice.invoice_number,
             "total_amount": invoice.total,
+            "amount_paid": invoice.amount_paid,
+            "remaining_balance": invoice.remaining_balance,
+            "payment_status": invoice.payment_status.label if invoice.payment_status else None,
             "warnings": warnings,
             "status": 200
         })
+
 
 
 
