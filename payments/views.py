@@ -9,59 +9,72 @@ from rest_framework.permissions import IsAuthenticated
 
 
 class CreatePaymentInView(APIView):
-
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         data = request.data
         company_id = data.get('company')
-        bank_id = data.get('bank_account')
         invoice_id = data.get('invoice')
+        bank_id = data.get('bank_account')  
         amount = float(data.get('amount', 0))
 
+        # Validate company
         try:
             company = Company.objects.get(id=company_id)
         except Company.DoesNotExist:
             return Response({"status": 404, "message": "Company not found"}, status=404)
 
+        # Validate invoice
         try:
-            bank = BankAccount.objects.get(id=bank_id, company=company, deleted=False)
-        except BankAccount.DoesNotExist:
-            return Response({"status": 400, "message": "Invalid or inactive bank account for this company"}, status=400)
-
-        invoice = Invoice.objects.filter(id=invoice_id, company=company).first()
-
-        if not invoice:
+            invoice = Invoice.objects.get(id=invoice_id, company=company)
+        except Invoice.DoesNotExist:
             return Response({"status": 404, "message": "Invoice not found for this company"}, status=404)
 
+        #bank validation
+        bank = None
+        if bank_id:
+            try:
+                bank = BankAccount.objects.get(id=bank_id, company=company, deleted=False)
+            except BankAccount.DoesNotExist:
+                return Response({"status": 400, "message": "Invalid or inactive bank account for this company"}, status=400)
 
-        #? STRICT VALIDATION: prevent overpayment or duplicate payments
+        # Prevent overpayment
         if invoice.remaining_balance <= 0:
             return Response({
                 "status": 400,
                 "message": "Invoice is already fully paid. No further payment is required."
             }, status=400)
 
-        if amount > invoice.remaining_balance:
+        if round(amount, 2) > round(invoice.remaining_balance, 2):
             return Response({
                 "status": 400,
                 "message": f"Payment amount exceeds the remaining balance of ₹{invoice.remaining_balance:.2f}."
             }, status=400)
-    
-        # Step 1: Record the payment
+
+        #Create PaymentIn record
         payment = PaymentIn.objects.create(
             company=company,
             invoice=invoice,
             amount=amount,
-            bank_account=bank,
+            bank_account=bank,  # can be None
             note=data.get('note', '')
         )
 
-        # Step 2: Update bank balance
-        bank.current_balance += amount
-        bank.save()
+        # Update bank balance and create bank transaction only if bank is used
+        if bank:
+            bank.current_balance += amount
+            bank.save()
 
-        # Step 3: Update invoice financials
+            BankTransaction.objects.create(
+                bank_account=bank,
+                transaction_type='credit',
+                amount=amount,
+                related_invoice=invoice,
+                description=data.get('note', f"Payment In for invoice #{invoice.invoice_number}"),
+                balance_after_transaction=bank.current_balance
+            )
+
+        # Update invoice
         invoice.amount_paid += amount
         invoice.remaining_balance = max(invoice.total - invoice.amount_paid, 0)
 
@@ -72,6 +85,7 @@ class CreatePaymentInView(APIView):
         else:
             invoice.payment_status_id = 3  # Paid
 
+        
         invoice.save()
 
         return Response({

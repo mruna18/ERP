@@ -12,6 +12,7 @@ from parties.models import *
 from .serializers import *
 from django.db.models import Max
 from .utils import *
+from payments.models import *
 
 
 # def generate_invoice_number(company):

@@ -31,11 +31,11 @@ class InvoiceAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'invoice_number', 'company', 'party', 'invoice_type',
         'subtotal', 'tax_amount', 'total',
-        'amount_paid', 'remaining_balance',
+        'amount_paid', 'remaining_balance','payment_mode',
          'payment_type', 'payment_status', 'bank_account',
         'created_at', 'is_deleted'
     )
-    filter_horizontal = ('payment_modes',) 
+    # filter_horizontal = ('payment_modes',) 
     list_filter = ('company', 'invoice_type', 'payment_status', 'payment_type')
     search_fields = ('invoice_number', 'party__name')
     inlines = [InvoiceItemInline]

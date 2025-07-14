@@ -58,8 +58,8 @@ class Invoice(models.Model):
     amount_paid = models.FloatField(default=0.0)
     remaining_balance = models.FloatField(default=0.0)
 
-    # payment_mode = models.ForeignKey('PaymentMode', on_delete=models.SET_NULL, null=True, blank=True)
-    payment_modes = models.ManyToManyField('PaymentMode', blank=True)
+    payment_mode = models.ForeignKey('PaymentMode', on_delete=models.SET_NULL, null=True, blank=True)
+    # payment_modes = models.ManyToManyField('PaymentMode', blank=True)
     payment_type = models.ForeignKey('PaymentType', on_delete=models.SET_NULL, null=True, blank=True)
     payment_status = models.ForeignKey('PaymentStatus', on_delete=models.SET_NULL, null=True, blank=True)
     bank_account = models.ForeignKey('BankAccount', on_delete=models.SET_NULL, null=True, blank=True)
