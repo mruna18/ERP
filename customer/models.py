@@ -22,6 +22,6 @@ class Customer(models.Model):
 
 #! to select compnay
 # class SelectedCompany(models.Model):
-#     user = models.OneToOneField(User, on_delete=models.CASCADE)
-#     company = models.ForeignKey('companies.Company', on_delete=models.CASCADE)
+#     user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
+#     company = models.ForeignKey('companies.Company', on_delete=models.DO_NOTHING)
 #     updated_at = models.DateTimeField(auto_now=True)

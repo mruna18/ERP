@@ -33,7 +33,7 @@ class Item(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="items")
+    company = models.ForeignKey(Company, on_delete=models.DO_NOTHING, related_name="items")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

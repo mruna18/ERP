@@ -30,3 +30,13 @@ class PaymentOutSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentOut
         fields = '__all__'
+
+class CashLedgerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CashLedger
+        fields = '__all__'
+
+class CashTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CashTransaction
+        fields = '__all__'

@@ -41,9 +41,9 @@ class InvoiceType(models.Model):
 
 
 class Invoice(models.Model):
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='invoices')
-    party = models.ForeignKey(Party, on_delete=models.CASCADE)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, on_delete=models.DO_NOTHING, related_name='invoices')
+    party = models.ForeignKey(Party, on_delete=models.DO_NOTHING)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING)
     
     invoice_number = models.CharField(max_length=50)
     invoice_type = models.ForeignKey('InvoiceType', on_delete=models.PROTECT)
@@ -72,7 +72,7 @@ class Invoice(models.Model):
         return f"{self.invoice_number} ({self.invoice_type.code})"
 
 class InvoiceItem(models.Model):
-    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="items")
+    invoice = models.ForeignKey(Invoice, on_delete=models.DO_NOTHING, related_name="items")
     item = models.ForeignKey(Item, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
     rate = models.FloatField() 
@@ -111,7 +111,7 @@ class BankAccount(models.Model):
 #         ('debit', 'Debit'),    # money taken from the bank
 #     )
 
-#     bank_account = models.ForeignKey('BankAccount', on_delete=models.CASCADE, related_name='transactions')
+#     bank_account = models.ForeignKey('BankAccount', on_delete=models.DO_NOTHING, related_name='transactions')
 #     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
 #     amount = models.FloatField()
 #     date = models.DateField(auto_now_add=True)
