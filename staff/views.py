@@ -2,9 +2,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
-from staff.models import StaffProfile, Role
+from staff.models import *
 from companies.models import Company  
 from django.db import transaction
+from .serializer import *
 
 class CreateStaffView(APIView):
     permission_classes = [IsAuthenticated]
@@ -65,3 +66,22 @@ class CreateStaffView(APIView):
                 "staff_id": staff.id
             }
         }, status=201)
+
+
+class CreateStaffRoleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = StaffRoleSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "msg": "Role created successfully",
+                "data": serializer.data,
+                "status": 201
+            })
+        return Response({
+            "msg": "Validation error",
+            "errors": serializer.errors,
+            "status": 400
+        })
