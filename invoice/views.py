@@ -415,12 +415,12 @@ class UpdateInvoiceView(APIView):
     def put(self, request, pk):
         company_id = request.data.get("company")
         if not company_id:
-            return Response({"detail": "Company ID is required.", "status":500})
+            return Response({"detail": "Company ID is required.", "status": 500})
 
         try:
             invoice = Invoice.objects.get(pk=pk, company_id=company_id)
         except Invoice.DoesNotExist:
-            return Response({"detail": "Invoice not found for this company.", "status":500})
+            return Response({"detail": "Invoice not found for this company.", "status": 500})
 
         serializer = InvoiceSerializer(invoice, data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -428,18 +428,18 @@ class UpdateInvoiceView(APIView):
 
         party = data.get("party")
         if party.company_id != int(company_id):
-            return Response({"detail": "Invalid party for the given company.", "status":500})
+            return Response({"detail": "Invalid party for the given company.", "status": 500})
 
         invoice_type = data.get("invoice_type")
         if not invoice_type:
-            return Response({"detail": "Invoice type is required.", "status":500})
+            return Response({"detail": "Invoice type is required.", "status": 500})
 
         is_purchase = invoice_type.code.lower() == "purchase"
         is_sales = invoice_type.code.lower() == "sales"
 
         items_data = request.data.get("items", [])
         if not items_data:
-            return Response({"detail": "At least one item is required.", "status":500})
+            return Response({"detail": "At least one item is required.", "status": 500})
 
         invoice_discount_percent = float(request.data.get("discount_percent", 0.0))
         subtotal = 0.0
@@ -454,7 +454,7 @@ class UpdateInvoiceView(APIView):
                 try:
                     item_obj = Item.objects.get(id=item_data["item"], company_id=company_id)
                 except Item.DoesNotExist:
-                    return Response({"detail": f"Item {item_data['item']} not found for this company.", "status":500})
+                    return Response({"detail": f"Item {item_data['item']} not found for this company.", "status": 500})
 
                 quantity = item_data["quantity"]
                 discount_percent = float(item_data.get("discount_percent", 0.0))
@@ -509,7 +509,6 @@ class UpdateInvoiceView(APIView):
                     amount=amount
                 )
 
-                # Update item stock based on invoice type
                 if is_sales:
                     item_obj.quantity -= quantity
                 elif is_purchase:
@@ -525,21 +524,36 @@ class UpdateInvoiceView(APIView):
             invoice.tax_amount = tax_total
             invoice.subtotal = subtotal
             invoice.total = invoice_total
-            invoice.invoice_type = invoice_type
+
+            # update payment status
+            invoice.remaining_balance = max(invoice.total - invoice.amount_paid, 0)
+
+            if invoice.amount_paid == 0:
+                invoice.payment_status_id = 1  # Unpaid
+            elif invoice.amount_paid < invoice.total:
+                invoice.payment_status_id = 2  # Partially Paid
+            else:
+                invoice.payment_status_id = 3  # Paid
+
+            # Overpaid warning
+            overpaid_amount = round(invoice.amount_paid - invoice.total, 2)
+            invoice.overpaid_amount = overpaid_amount if overpaid_amount > 0 else 0
+
             invoice.save()
 
-            # print("Invoice subtotal:", subtotal)
-            # print("Invoice total:", invoice_total)
-            # print("Invoice items:", InvoiceItem.objects.filter(invoice=invoice).count())
-
-        return Response({
+        response = {
             "msg": "Invoice updated successfully",
             "invoice_id": invoice.id,
             "invoice_number": invoice.invoice_number,
             "total_amount": invoice.total,
             "warnings": warnings,
             "status": 200
-        })
+        }
+
+        if overpaid_amount > 0:
+            response["overpaid_warning"] = f"This invoice has been overpaid by ₹{overpaid_amount:.2f}. Please review or issue a refund."
+
+        return Response(response)
 
 class DeleteInvoiceView(APIView):
     permission_classes = [IsAuthenticated]

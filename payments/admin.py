@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import BankTransaction, PaymentIn, PaymentOut, CashTransaction, CashLedger
+from .models import *
 
 # ---------- BankTransaction Admin ----------
 class BankTransactionAdmin(admin.ModelAdmin):
@@ -24,7 +24,7 @@ class PaymentOutAdmin(admin.ModelAdmin):
 class CashTransactionAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'ledger', 'transaction_type', 'amount', 'balance_after_transaction',
-        'description', 'created_at'
+        'description', 'created_at','updated_at' 
     )
     list_filter = ('transaction_type', 'ledger')
     search_fields = ('description', 'ledger__ledger_name')
@@ -36,9 +36,21 @@ class CashLedgerAdmin(admin.ModelAdmin):
     search_fields = ('ledger_name', 'company_name__name')
 
 
+# ---------- BankToBankTransfer Admin ----------
+class BankToBankTransferAdmin(admin.ModelAdmin):
+    list_display = ('id', 'company', 'from_account', 'to_account', 'amount', 'created_at')
+    search_fields = ('company__name', 'from_account__account_name', 'to_account__account_name')
+    list_filter = ('company', 'from_account', 'to_account')
+
+
+
+
+
 # ---------- Registering All ----------
 admin.site.register(BankTransaction, BankTransactionAdmin)
 admin.site.register(PaymentIn, PaymentInAdmin)
 admin.site.register(PaymentOut, PaymentOutAdmin)
 admin.site.register(CashTransaction, CashTransactionAdmin)
 admin.site.register(CashLedger, CashLedgerAdmin)
+admin.site.register(BankToBankTransfer, BankToBankTransferAdmin)
+admin.site.register(ReportExportLog)

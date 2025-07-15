@@ -58,6 +58,8 @@ class LoginView(APIView):
                 return Response({'error': 'Invalid credentials'}, status=401)
         except User.DoesNotExist:
             return Response({'error': 'User with this email does not exist'}, status=404)
+        
+
 
 # class CustomerCreateView(APIView):
 #     def post(self, request):

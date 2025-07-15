@@ -40,3 +40,8 @@ class CashTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CashTransaction
         fields = '__all__'
+
+class BankTransferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankToBankTransfer
+        fields = '__all__'

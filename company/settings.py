@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles','customer','rest_framework',
-'rest_framework.authtoken','companies','items','parties','invoice','payments'
+'rest_framework.authtoken','companies','items','parties','invoice','payments','staff'
 ]
 
 MIDDLEWARE = [
@@ -106,11 +106,13 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
 USE_TZ = True
+ 
+TIME_ZONE = 'Asia/Kolkata'  
 
 
 # Static files (CSS, JavaScript, Images)
@@ -146,3 +148,9 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
+
+
+#! EXCEL
+import os
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
