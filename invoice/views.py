@@ -13,6 +13,7 @@ from .serializers import *
 from django.db.models import Max
 from .utils import *
 from payments.models import *
+from staff.permission import *
 
 
 # def generate_invoice_number(company):
@@ -124,7 +125,8 @@ class DeleteBankAccountView(APIView):
 
 #!##################################INVOICE##############################################
 class CreateInvoiceView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'create_invoice'
 
     def post(self, request):
         serializer = InvoiceSerializer(data=request.data)
@@ -317,7 +319,9 @@ class CreateInvoiceView(APIView):
 
 # list of invoice related to the company
 class InvoiceListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'view_invoice'
+
 
     def post(self, request):
         company_id = request.data.get("company")
@@ -410,7 +414,8 @@ class InvoiceDetailView(APIView):
 
 
 class UpdateInvoiceView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'edit_invoice'
 
     def put(self, request, pk):
         company_id = request.data.get("company")
@@ -556,7 +561,8 @@ class UpdateInvoiceView(APIView):
         return Response(response)
 
 class DeleteInvoiceView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'delete_invoice'
 
     def delete(self, request, pk):
         company_id = request.data.get("company")

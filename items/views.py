@@ -7,9 +7,11 @@ from .models import Item
 from .serializer import *
 from customer.models import Customer
 from companies.models import *
+from staff.permission import *
 
 class ItemCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'create_item'
 
     def post(self, request):
         serializer = ItemSerializer(data=request.data)
@@ -80,7 +82,8 @@ class ItemCreateView(APIView):
 # list
 
 class ListItemView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'view_item'
 
     def post(self, request):
         customer_id = request.data.get("customer_id")
@@ -105,7 +108,8 @@ class ListItemView(APIView):
 
 # get by id
 class RetrieveItemView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'view_item'
 
     def get(self, request, company_id, pk):
         customer = Customer.objects.filter(user=request.user, is_active=True).first()
@@ -129,7 +133,8 @@ class RetrieveItemView(APIView):
 
 # PUT /items/<int:company_id>/<int:pk>/
 class UpdateItemView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'edit_item'
 
     def put(self, request, company_id, pk):
         customer = Customer.objects.filter(user=request.user).first()
@@ -179,7 +184,8 @@ class UpdateItemView(APIView):
 
 # DELETE /items/<int:company_id>/<int:pk>/
 class DeleteItemView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'delete_item'
 
     def delete(self, request, company_id, pk):
         customer = Customer.objects.filter(user=request.user).first()

@@ -27,10 +27,12 @@ from django.db import transaction
 from .models import Party
 from .serializers import PartySerializer
 from companies.models import Company
-from parties.models import *  # if needed
+from parties.models import *  
+from staff.permission import *
 
 class PartyCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'create_party'
 
     def post(self, request):
         data = request.data.copy()
@@ -94,7 +96,8 @@ class PartyCreateView(APIView):
 #         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class PartyUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'edit_party'
 
     def put(self, request, pk):
         company_id = request.data.get("company")
@@ -120,7 +123,8 @@ class PartyUpdateView(APIView):
 
 
 class PartyDeleteView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'delete_party'
 
     def delete(self, request, pk):
         company_id = request.data.get("company")
@@ -137,7 +141,8 @@ class PartyDeleteView(APIView):
         return Response({"message": "Party deleted successfully (soft delete)."}, status=200)
 
 class PartyDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'view_party'
 
     def get(self, request, company_id, pk):
         try:
@@ -155,7 +160,8 @@ class PartyDetailView(APIView):
 
 #?
 class PartyListPostView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasCustomPermission]
+    required_permission = 'view_party'
 
     def post(self, request):
         company_id = request.data.get("company")
