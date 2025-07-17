@@ -10,8 +10,10 @@ from companies.models import *
 from staff.permission import *
 
 class ItemCreateView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'create_item'
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Items" 
+    required_permission = "create"
+   
 
     def post(self, request):
         serializer = ItemSerializer(data=request.data)
@@ -19,22 +21,22 @@ class ItemCreateView(APIView):
             error_messages = [f"{field}: {error[0]}" for field, error in serializer.errors.items()]
             return Response({"error": " | ".join(error_messages)}, status=400)
 
-        customer_id = request.data.get("customer_id")
         company_id = request.data.get("company")
+        if not company_id:
+            return Response({"error": "'company' is required."}, status=400)
 
-        if not customer_id or not company_id:
-            return Response({"error": "Both 'customer_id' and 'company' are required."}, status=400)
-
-        # Validate customer and company
         try:
-            customer = Customer.objects.get(id=customer_id)
+            customer = Customer.objects.get(user=request.user)
         except Customer.DoesNotExist:
             return Response({"error": "Customer not found."}, status=404)
 
         try:
-            company = Company.objects.get(id=company_id, owner=customer, is_active=True)
+            company = Company.objects.get(id=company_id, is_active=True)
         except Company.DoesNotExist:
-            return Response({"error": "Company not found or doesn't belong to this customer."}, status=404)
+            return Response({"error": "Company not found."}, status=404)
+
+        if company.owner != customer:
+            return Response({"error": "Company does not belong to this customer."}, status=403)
 
         data = serializer.validated_data
         try:
@@ -48,12 +50,11 @@ class ItemCreateView(APIView):
             tax_percent = float(data.get("tax_percent", 0))
             unit_type = data.get("unit")
         except (TypeError, ValueError):
-            return Response({"error": "Invalid data type in numeric fields.","status":500})
+            return Response({"error": "Invalid data type in numeric fields."}, status=400)
 
         if price > 1e7 or sales_price > 1e7:
-            return Response({"error": "Price or Sales Price is too large.","status":500})
+            return Response({"error": "Price or Sales Price is too large."}, status=400)
 
-        # Apply tax if needed
         final_price = price + (price * tax_percent / 100) if tax_applied else price
         final_sales_price = sales_price + (sales_price * tax_percent / 100) if tax_applied else sales_price
 
@@ -75,15 +76,18 @@ class ItemCreateView(APIView):
 
         return Response({
             "message": "Item created successfully.",
-            "item_id": item.id,"status":200
+            "item_id": item.id,
+            "status": 200
         })
 
 
 # list
 
 class ListItemView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'view_item'
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Items" 
+    required_permission = "view"
+
 
     def post(self, request):
         customer_id = request.data.get("customer_id")
@@ -108,9 +112,10 @@ class ListItemView(APIView):
 
 # get by id
 class RetrieveItemView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'view_item'
-
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Items" 
+    required_permission = "view"
+ 
     def get(self, request, company_id, pk):
         customer = Customer.objects.filter(user=request.user, is_active=True).first()
         if not customer:
@@ -133,8 +138,10 @@ class RetrieveItemView(APIView):
 
 # PUT /items/<int:company_id>/<int:pk>/
 class UpdateItemView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'edit_item'
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Items" 
+    required_permission = "update"
+    
 
     def put(self, request, company_id, pk):
         customer = Customer.objects.filter(user=request.user).first()
@@ -184,8 +191,10 @@ class UpdateItemView(APIView):
 
 # DELETE /items/<int:company_id>/<int:pk>/
 class DeleteItemView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'delete_item'
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Items" 
+    required_permission = "delete"
+    
 
     def delete(self, request, company_id, pk):
         customer = Customer.objects.filter(user=request.user).first()

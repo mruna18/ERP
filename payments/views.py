@@ -21,9 +21,14 @@ import os
 from .utils import *
 from django.utils.text import slugify
 from django.conf import settings
+from staff.permission import *
 
 class CreatePaymentInView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Payment" 
+    required_permission = "create"
+    
+
 
     def post(self, request):
         data = request.data
@@ -136,7 +141,10 @@ class CreatePaymentInView(APIView):
 
 
 class CreatePaymentOutView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Payment" 
+    required_permission = "create"
+   
 
     def post(self, request):
         data = request.data
@@ -252,7 +260,10 @@ class CreatePaymentOutView(APIView):
 
 #! -- cash ledger --
 class CreateCashLedgerView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Cash Ledger" 
+    required_permission = "create"
+  
 
 
     def post(self, request):
@@ -302,7 +313,10 @@ class CreateCashLedgerView(APIView):
 
 # cash transaction 
 class CreateCashTransactionView(APIView):
-    permission_classes = [IsAuthenticated]
+    pepermission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Cash" 
+    required_permission = "create"
+    
 
     def post(self, request):
         try:
@@ -361,7 +375,10 @@ class CreateCashTransactionView(APIView):
         
 
 class UpdateCashLedgerView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Cash Ledger" 
+    required_permission = "update"
+    
 
     def put(self, request, pk):
         try:
@@ -379,7 +396,10 @@ class UpdateCashLedgerView(APIView):
 
 
 class DeleteCashLedgerView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Cash Ledger" 
+    required_permission = "delete"
+ 
 
     def delete(self, request, pk):
         try:
@@ -394,7 +414,10 @@ class DeleteCashLedgerView(APIView):
 
 # list of all ledger
 class ListCashLedgersView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Cash Ledger" 
+    required_permission = "view"
+    
 
     def get(self, request, company_id):
         ledgers = CashLedger.objects.filter(company_name_id=company_id, deleted=False)
@@ -403,7 +426,10 @@ class ListCashLedgersView(APIView):
     
 # get ledger by id
 class GetCashLedgerByIdView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Cash Ledger" 
+    required_permission = "view"
+    
 
     def get(self, request, pk):
         try:
@@ -417,7 +443,10 @@ class GetCashLedgerByIdView(APIView):
 #! -- bank to bank
 
 class BankToBankTransferView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Bank Transfer" 
+    required_permission = "create"
+
 
     def post(self, request):
         data = request.data
@@ -489,6 +518,11 @@ class BankToBankTransferView(APIView):
 
 # List all bank transfers for a specific company
 class ListBankTransfersView(APIView):
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Bank Transfer" 
+    required_permission = "view"
+   
+
     def get(self, request, company_id):
         try:
             company = Company.objects.get(id=company_id)
@@ -506,6 +540,11 @@ class ListBankTransfersView(APIView):
 
 # Get specific transfer by ID
 class GetBankTransferView(APIView):
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Bank Transfer" 
+    required_permission = "view"
+    
+
     def get(self, request, pk):
         transfer = BankToBankTransfer.objects.filter(id=pk, deleted=False).first()
         if not transfer:
@@ -520,7 +559,10 @@ class GetBankTransferView(APIView):
 
 #  Update a specific transfer
 class UpdateBankToBankTransferView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Bank Transfer" 
+    required_permission = "update"
+    
 
     def put(self, request, transfer_id):
         data = request.data
@@ -600,7 +642,10 @@ class UpdateBankToBankTransferView(APIView):
 
 # Soft delete a specific transfer
 class DeleteBankToBankTransferView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Bank Transfer" 
+    required_permission = "delete"
+    
 
     def delete(self, request, transfer_id):
         try:
@@ -632,7 +677,10 @@ class DeleteBankToBankTransferView(APIView):
 #! -- excel --
 
 class SalesReportExportExcelView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Reports"
+    required_permission = "view"
+    
 
     def post(self, request):
         company_id = request.data.get("company")
@@ -743,7 +791,10 @@ class SalesReportExportExcelView(APIView):
 
 #! -- purchase excel --
 class PurchaseReportExportExcelView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Reports"
+    required_permission = "view"
+ 
 
     def post(self, request):
         company_id = request.data.get("company")
@@ -858,7 +909,10 @@ class PurchaseReportExportExcelView(APIView):
     
 #! -- book transaction excel --
 class BankTransactionReportExportExcelView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Reports"
+    required_permission = "view"
+    
 
     def post(self, request):
         company_id = request.data.get("company")

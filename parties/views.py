@@ -1,20 +1,4 @@
 # views.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
-from .models import Party
-from .serializers import PartySerializer
-from customer.models import Customer
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
-from django.db import transaction
-from django.shortcuts import get_object_or_404
-
 from .models import Party
 from .serializers import PartySerializer
 from companies.models import Company  # Import this
@@ -24,15 +8,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from django.db import transaction
-from .models import Party
-from .serializers import PartySerializer
-from companies.models import Company
+
 from parties.models import *  
 from staff.permission import *
 
 class PartyCreateView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'create_party'
+    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
+    
 
     def post(self, request):
         data = request.data.copy()
@@ -84,7 +66,7 @@ class PartyCreateView(APIView):
 
 
 # class PartyListView(APIView):
-#     permission_classes = [IsAuthenticated]
+#     permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
 
 #     def get(self, request):
 #         customer = Customer.objects.filter(user=request.user).first()
@@ -96,8 +78,8 @@ class PartyCreateView(APIView):
 #         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class PartyUpdateView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'edit_party'
+    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
+
 
     def put(self, request, pk):
         company_id = request.data.get("company")
@@ -123,8 +105,8 @@ class PartyUpdateView(APIView):
 
 
 class PartyDeleteView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'delete_party'
+    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
+
 
     def delete(self, request, pk):
         company_id = request.data.get("company")
@@ -141,8 +123,8 @@ class PartyDeleteView(APIView):
         return Response({"message": "Party deleted successfully (soft delete)."}, status=200)
 
 class PartyDetailView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'view_party'
+    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
+
 
     def get(self, request, company_id, pk):
         try:
@@ -160,8 +142,8 @@ class PartyDetailView(APIView):
 
 #?
 class PartyListPostView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'view_party'
+    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
+ 
 
     def post(self, request):
         company_id = request.data.get("company")

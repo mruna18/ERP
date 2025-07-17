@@ -1,75 +1,87 @@
-# staff/permissions.py
-
 from rest_framework.permissions import BasePermission
 from companies.models import Company
-from staff.models import *
-from .utils import *
+from staff.models import StaffProfile
+from customer.models import Customer
+from .models import ModulePermission  # adjust import based on where you keep it
 
-class StaffPermission(BasePermission):
+
+def get_company_id(request, view):
+    return (
+        request.data.get("company_id")
+        or request.data.get("company")
+        or request.query_params.get("company")
+        or request.query_params.get("company_id")
+        or view.kwargs.get("company_id")
+    )
+
+
+class IsCompanyAdminOrAssigned(BasePermission):
+    """
+    Allows access to:
+    - Company owner (Customer)
+    - Assigned Staff
+    """
+
     def has_permission(self, request, view):
-        action = view.action if hasattr(view, "action") else request.method.lower()
-        if action == "post":
-            action = "create"
-        elif action == "get":
-            action = "view"
-        elif action in ["put", "patch"]:
-            action = "edit"
-        elif action == "delete":
-            action = "delete"
-
-        # Determine company_id from request
-        company_id = (
-            request.data.get("company_id") or
-            request.data.get("company") or
-            request.query_params.get("company") or
-            view.kwargs.get("company_id")
-        )
-
+        company_id = get_company_id(request, view)
         if not company_id:
-            raise CustomApiException(400, "company_id is required")
+            return False
 
         try:
-            company = Company.objects.get(id=company_id)
-        except Company.DoesNotExist:
-            raise CustomApiException(404, "Company not found.")
+            customer = Customer.objects.get(user=request.user)
+        except Customer.DoesNotExist:
+            return False
 
-        try:
-            staff = StaffProfile.objects.get(user=request.user, company=company, is_active=True)
-        except StaffProfile.DoesNotExist:
-            raise CustomApiException(403, "You are not associated with selected company.")
+        # Allow if customer is owner of the company
+        if Company.objects.filter(id=company_id, owner=customer, is_active=True).exists():
+            return True
 
-        page_code = getattr(view, "page", None)
-        if not page_code:
-            raise CustomApiException(403, "This view is not properly configured with `page`.")
-
-        allowed_codes = [perm.code for perm in staff.role.permissions.all()]
-
-        if page_code not in allowed_codes:
-            raise CustomApiException(403, f"Access denied for '{page_code}'.")
-
-        return True
+        # Allow if staff assigned to company
+        return StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).exists()
 
 
-#! has permission
-class HasCustomPermission(BasePermission):
+class HasModulePermission(BasePermission):
+    """
+    Checks if a staff has required module permission based on HTTP method
+    """
+
     def has_permission(self, request, view):
-        required_permission = getattr(view, 'required_permission', None)
-        company_id = (
-            request.data.get("company_id") or
-            request.query_params.get("company_id") or
-            view.kwargs.get("company_id")
-        )
+        user = request.user
+        company_id = get_company_id(request, view)
+        module_name = getattr(view, 'module_name', None)
 
-        if not required_permission or not company_id:
+        if not user or not user.is_authenticated or not company_id or not module_name:
             return False
 
         try:
-            staff = StaffProfile.objects.get(
-                username=request.user.username,
-                company_id=company_id,
-                is_active=True
-            )
-            return staff.role.permissions.filter(code=required_permission).exists()
-        except StaffProfile.DoesNotExist:
+            customer = Customer.objects.get(user=request.user)
+        except Customer.DoesNotExist:
+            customer = None
+
+        # Owner has full access
+        if customer and Company.objects.filter(id=company_id, owner=customer, is_active=True).exists():
+            return True
+
+        # Now check staff permissions
+        staff = StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).first()
+        if not staff or not staff.role:
             return False
 
+        method_map = {
+            'GET': 'can_view',
+            'POST': 'can_create',
+            'PUT': 'can_edit',
+            'PATCH': 'can_edit',
+            'DELETE': 'can_delete'
+        }
+
+        action_field = method_map.get(request.method)
+        if not action_field:
+            return False
+
+        return ModulePermission.objects.filter(
+            job_role=staff.role,
+            company_id=company_id,
+            module_name=module_name,
+            **{action_field: True}
+        ).exists()

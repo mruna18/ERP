@@ -9,9 +9,12 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken,TokenError
 from rest_framework.permissions import IsAuthenticated
 from .models import Customer
+from staff.permission import *
 
 
 class RegisterView(APIView):
+    
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -101,9 +104,17 @@ class RefreshTokenView(APIView):
             return Response({"error": "Invalid refresh token"}, status=401)
         
 
+
+#! superadmin
+class IsSuperAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.is_superuser
+    
+
 # ----------- List All Customers -----------
 class CustomerListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes =[IsAuthenticated, IsSuperAdmin]
+   
 
     def get(self, request):
         customers = Customer.objects.filter(is_active=True)
@@ -113,8 +124,8 @@ class CustomerListView(APIView):
 
 # ----------- Retrieve Single Customer -----------
 class CustomerRetrieveView(APIView):
-    permission_classes = [IsAuthenticated]
-
+    permission_classes =[IsAuthenticated]
+  
     def get(self, request, pk):
         try:
             customer = Customer.objects.get(pk=pk)
@@ -127,6 +138,8 @@ class CustomerRetrieveView(APIView):
 
 # ----------- Update Customer -----------
 class CustomerUpdateView(APIView):
+    permission_classes =[IsAuthenticated]
+
     def put(self, request, pk):
         try:
             customer = Customer.objects.get(pk=pk)
@@ -158,7 +171,8 @@ class CustomerUpdateView(APIView):
 
 # ----------- Delete Customer -----------
 class CustomerDeleteView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes =[IsAuthenticated, IsSuperAdmin]
+   
 
     def delete(self, request, pk):
         try:

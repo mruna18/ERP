@@ -23,7 +23,9 @@ from staff.permission import *
 
 
 class GETCompanyBankAccountView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Bank Transaction"
+    required_permission = "view"
 
     def post(self, request):
         company_id = request.data.get("company")
@@ -44,7 +46,9 @@ class GETCompanyBankAccountView(APIView):
 
 
 class POSTCompanyBankAccountView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Bank Transaction"
+    required_permission = "create"
 
     def post(self, request):
         serializer = BankAccountSerializer(data=request.data)
@@ -62,7 +66,9 @@ class POSTCompanyBankAccountView(APIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 class UpdateBankAccountView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Bank Transaction"
+    required_permission = "update"
 
     def put(self, request, pk):
         company_id = request.data.get("company")
@@ -97,7 +103,9 @@ class UpdateBankAccountView(APIView):
 
 
 class DeleteBankAccountView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Bank Transaction"
+    required_permission = "delete"
 
     def delete(self, request, pk):
         company_id = request.data.get("company")
@@ -125,8 +133,11 @@ class DeleteBankAccountView(APIView):
 
 #!##################################INVOICE##############################################
 class CreateInvoiceView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'create_invoice'
+    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Invoice"
+    required_permission = "create"
+
 
     def post(self, request):
         serializer = InvoiceSerializer(data=request.data)
@@ -319,8 +330,10 @@ class CreateInvoiceView(APIView):
 
 # list of invoice related to the company
 class InvoiceListView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'view_invoice'
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Invoice"
+    required_permission = "view"
+ 
 
 
     def post(self, request):
@@ -369,7 +382,9 @@ class InvoiceListView(APIView):
 #         return Invoice.objects.filter(company=customer.selected_company)
 
 class InvoiceDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Invoice"
+    required_permission = "view"
 
     def get(self, request, pk):
         try:
@@ -414,8 +429,10 @@ class InvoiceDetailView(APIView):
 
 
 class UpdateInvoiceView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'edit_invoice'
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Invoice"
+    required_permission = "update"
+    
 
     def put(self, request, pk):
         company_id = request.data.get("company")
@@ -561,8 +578,10 @@ class UpdateInvoiceView(APIView):
         return Response(response)
 
 class DeleteInvoiceView(APIView):
-    permission_classes = [IsAuthenticated,HasCustomPermission]
-    required_permission = 'delete_invoice'
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Invoice"
+    required_permission = "delete"
+ 
 
     def delete(self, request, pk):
         company_id = request.data.get("company")
