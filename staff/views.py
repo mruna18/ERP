@@ -28,16 +28,16 @@ class CreateStaffView(APIView):
         company_id = data.get('company_id')
 
         if not all([username, password, role_id, company_id]):
-            return Response({"msg": "Missing required fields", "status": 400}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"msg": "Missing required fields", "status": 500})
 
         if StaffProfile.objects.filter(username=username, company_id=company_id).exists():
-            return Response({"msg": "Username already exists for this company", "status": 400}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"msg": "Username already exists for this company", "status": 500})
 
         try:
             #
             existing_user = User.objects.filter(username=username).first()
             if existing_user:
-                return Response({"msg": "Username already exists in the system", "status": 400}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"msg": "Username already exists in the system", "status": 500})
 
             user = User.objects.create_user(
                 username=username,
@@ -45,15 +45,15 @@ class CreateStaffView(APIView):
                 password=password
             )
         except IntegrityError:
-            return Response({"msg": "Username creation failed", "status": 400}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"msg": "Username creation failed", "status": 500})
 
         try:
             company = Company.objects.get(id=company_id)
             role = Role.objects.get(id=role_id, company=company, deleted=False)
         except Company.DoesNotExist:
-            return Response({"msg": "Company not found", "status": 404}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"msg": "Company not found", "status": 500}, status=status.HTTP_404_NOT_FOUND)
         except Role.DoesNotExist:
-            return Response({"msg": "Role not found in this company", "status": 404}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"msg": "Role not found in this company", "status": 500}, status=status.HTTP_404_NOT_FOUND)
 
         staff = StaffProfile.objects.create(
             user=user,
@@ -88,10 +88,10 @@ class UpdateStaffView(APIView):
         company_id = data.get('company_id') or data.get('company') or request.headers.get("company")
 
         if not company_id:
-            return Response({"detail": "Company ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Company ID is required."})
 
         if not staff_id:
-            return Response({"detail": "Staff ID required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Staff ID required."})
 
         try:
             staff = StaffProfile.objects.get(id=staff_id, company_id=company_id, is_active=True)
@@ -126,7 +126,7 @@ class UpdateStaffView(APIView):
             user.set_password(password)
         user.save()
 
-        return Response({"detail": "Staff updated successfully."}, status=status.HTTP_200_OK)
+        return Response({"detail": "Staff updated successfully."})
 
     
 #! ROLE
@@ -143,27 +143,27 @@ class CreateStaffRoleView(APIView):
         module_permissions_data = data.get('module_permissions', [])
 
         if not name or not company_id:
-            return Response({"msg": "Missing required fields", "status": 400})
+            return Response({"msg": "Missing required fields! name and compnay_id is required", "status": 500})
 
         if Role.objects.filter(name=name, company_id=company_id, deleted=False).exists():
-            return Response({"msg": "Role already exists", "status": 400})
+            return Response({"msg": "Role already exists", "status": 500})
 
         try:
             company = Company.objects.get(id=company_id)
         except Company.DoesNotExist:
-            return Response({"msg": "Company not found", "status": 404})
+            return Response({"msg": "Company not found", "status": 500})
 
         role = Role.objects.create(name=name, description=description, company=company)
 
         for perm in module_permissions_data:
             module_id = perm.get("module_id")
             if not module_id:
-                return Response({"msg": "Module ID is required in permissions"}, status=400)
+                return Response({"msg": "Module ID is required in permissions","status":500})
 
             try:
                 module = Module.objects.get(id=module_id)
             except Module.DoesNotExist:
-                return Response({"msg": f"Module with ID {module_id} does not exist"}, status=400)
+                return Response({"msg": f"Module with ID {module_id} does not exist","status":500})
 
             ModulePermission.objects.create(
                 job_role=role,
@@ -199,7 +199,7 @@ class ListStaffRolesView(APIView):
         if hasattr(user, 'company') and user.company.id != int(company_id):
             return Response({
                 "msg": "You are not authorized to view roles for this company.",
-                "status": 403
+                "status": 500
             })
 
         roles = Role.objects.filter(company_id=company_id, deleted=False)
@@ -223,17 +223,17 @@ class UpdateStaffRoleView(APIView):
         module_permissions = data.get("module_permissions", [])
 
         if not name or not company_id:
-            return Response({"msg": "Missing required fields", "status": 400})
+            return Response({"msg": "Missing required fields", "status": 500})
 
         try:
             role = Role.objects.get(id=role_id, company_id=company_id, deleted=False)
         except Role.DoesNotExist:
-            return Response({"msg": "Role not found", "status": 404})
+            return Response({"msg": "Role not found", "status": 500})
 
         try:
             company = Company.objects.get(id=company_id)
         except Company.DoesNotExist:
-            return Response({"msg": "Company not found", "status": 404})
+            return Response({"msg": "Company not found", "status": 500})
 
         with transaction.atomic():
             role.name = name
@@ -248,7 +248,7 @@ class UpdateStaffRoleView(APIView):
                 try:
                     module = Module.objects.get(name=required_module)
                 except Module.DoesNotExist:
-                    return Response({"msg": f"Module '{required_module}' not found", "status": 400})
+                    return Response({"msg": f"Module '{required_module}' not found", "status": 500})
 
                 ModulePermission.objects.create(
                     job_role=role,
@@ -278,11 +278,11 @@ class SoftDeleteStaffRoleView(APIView):
         try:
             role = Role.objects.get(pk=pk, deleted=False)
         except Role.DoesNotExist:
-            return Response({"msg": "Role not found", "status": 404})
+            return Response({"msg": "Role not found", "status": 500})
 
         #  Only allow deletion if the role belongs to the user's company
         if hasattr(request.user, 'company_id') and role.company_id != request.user.company_id:
-            return Response({"msg": "Unauthorized to delete this role", "status": 403})
+            return Response({"msg": "Unauthorized to delete this role", "status": 500})
 
         role.deleted = True
         role.save()
@@ -339,10 +339,10 @@ class ListAllPermissionsView(APIView):
         try:
             staff = StaffProfile.objects.get(user=user, company=company_id, is_active=True)
         except StaffProfile.DoesNotExist:
-            return Response({"detail": "Not a staff member or inactive."}, status=403)
+            return Response({"detail": "Not a staff member or inactive.","status":500})
 
         if not staff.job_role:
-            return Response({"detail": "No role assigned."}, status=403)
+            return Response({"detail": "No role assigned.","status":500})
 
         permissions = ModulePermission.objects.filter(job_role=staff.job_role, company_id=company_id)
         data = [
@@ -363,6 +363,25 @@ class ListAllPermissionsView(APIView):
             "permissions": data
         })
 
+class MyCompaniesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        companies = Company.objects.filter(staffprofile__user=user,is_active=True).distinct()
+        
+        data = [
+            {
+                "id": company.id,
+                "name": company.name,
+            } for company in companies
+        ]
+
+        return Response({
+            "status": 200,
+            "companies": data
+        })
+
 
 # class AssignRoleToStaffView(APIView):
 #     permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
@@ -371,17 +390,17 @@ class ListAllPermissionsView(APIView):
 #     def put(self, request, company_id, pk):
 #         role_id = request.data.get('role_id')
 #         if not role_id:
-#             return Response({"msg": "role_id is required", "status": 400})
+#             return Response({"msg": "role_id is required", "status": 500})
 
 #         try:
 #             staff = StaffProfile.objects.get(pk=pk, company_id=company_id, is_active=True)
 #         except StaffProfile.DoesNotExist:
-#             return Response({"msg": "Staff not found in this company", "status": 404})
+#             return Response({"msg": "Staff not found in this company", "status": 500})
 
 #         try:
 #             role = Role.objects.get(id=role_id, company_id=company_id, deleted=False)
 #         except Role.DoesNotExist:
-#             return Response({"msg": "Role not found in this company", "status": 404})
+#             return Response({"msg": "Role not found in this company", "status": 500})
 
 #         staff.role = role
 #         staff.save()
@@ -418,6 +437,7 @@ class CreateModuleView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Modules"
     required_permission = "create"
+
     def post(self, request):
         serializer = ModuleSerializer(data=request.data)
         if serializer.is_valid():

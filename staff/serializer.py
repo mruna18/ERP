@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import *
+from companies.models import *
 
 class StaffRoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,3 +25,8 @@ class StaffProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StaffProfile
         fields = ['id', 'username', 'email', 'job_role_name', 'company_name', 'is_active', 'created_at']
+
+class CompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = ['id', 'name', 'gst_number']

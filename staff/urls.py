@@ -14,6 +14,8 @@ urlpatterns = [
     #staff
     path('create-staff/', CreateStaffView.as_view(), name='create-staff'),
     path('update-staff/', UpdateStaffView.as_view(), name='update-staff'),
+    path('my-companies/', MyCompaniesView.as_view(), name='my-companies'),
+
 
     # path("company/<int:company_id>/staff/<int:pk>/assign-role/", AssignRoleToStaffView.as_view(), name="assign-role-to-staff"),
 

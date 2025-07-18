@@ -4,7 +4,18 @@ from staff.models import StaffProfile
 from customer.models import Customer
 from .models import ModulePermission
 from rest_framework.response import Response
+from parties.models import *
 
+
+# def get_company_id(request, view=None):
+#     return (
+#         request.headers.get("company") or
+#         request.data.get("company_id") or
+#         request.data.get("company") or
+#         request.query_params.get("company_id") or
+#         request.query_params.get("company") or
+#         (view.kwargs.get("company_id") if view else None)
+#     )
 
 def get_company_id(request, view=None):
     return (
@@ -13,32 +24,43 @@ def get_company_id(request, view=None):
         request.data.get("company") or
         request.query_params.get("company_id") or
         request.query_params.get("company") or
-        (view.kwargs.get("company_id") if view else None)
+        (view.kwargs.get("company_id") if view else None) or
+        get_company_from_instance(view, request)
     )
 
-class IsCompanyAdminOrAssigned(BasePermission):
-    """
-    Allows access to:
-    - Company owner (Customer)
-    - Assigned Staff
-    """
+def get_company_from_instance(view, request):
+    try:
+        if hasattr(view, 'kwargs') and 'pk' in view.kwargs:
+            party = Party.objects.get(pk=view.kwargs['pk'], deleted=False)
+            return party.company_id
+    except Party.DoesNotExist:
+        return None
 
+
+class IsCompanyAdminOrAssigned(BasePermission):
     def has_permission(self, request, view):
         company_id = get_company_id(request, view)
+        #print(f" [IsCompanyAdminOrAssigned] Company ID: {company_id}")
+
         if not company_id:
+            # #print("No company ID found.")
             return False
 
         try:
             customer = Customer.objects.get(user=request.user)
+            #print(f" Customer found: {customer}")
         except Customer.DoesNotExist:
             customer = None
+            #print(" Customer does not exist.")
 
-        # Allow if user is the owner of the company
         if customer and Company.objects.filter(id=company_id, owner=customer, is_active=True).exists():
+            #print(" User is the company owner")
             return True
 
-        # Allow if staff assigned to the company
-        return StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).exists()
+        is_staff = StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).exists()
+        #print(f"Staff assigned to company: {is_staff}")
+
+        return is_staff
 
 
 class HasModulePermission(BasePermission):
@@ -63,7 +85,13 @@ class HasModulePermission(BasePermission):
 
         staff = StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).first()
         if not staff or not staff.job_role:
+            #print("❌ No staff or no job role.")
             return False
+        
+        #print("🔐 Module:", required_module)
+        #print("🔐 Permission:", required_permission)
+        #print("🔐 Company:", company_id)
+        #print("🔐 Role ID:",  staff.job_role.id if staff.job_role else None)
 
         permission_qs = ModulePermission.objects.filter(
             job_role=staff.job_role,
@@ -72,7 +100,15 @@ class HasModulePermission(BasePermission):
         ).first()
 
         if not permission_qs:
+            #print("❌ No permission found for this module and role.")
             return False
+    
+
+        #print("🔐 Module:", required_module)
+        #print("🔐 Permission:", required_permission)
+        #print("🔐 Company:", company_id)
+        #print("🔐 Role ID:",  staff.job_role.id if staff.job_role else None)
+        #print("🔐 Permission Check Result:", getattr(permission_qs, f"can_{required_permission}", False))
 
         return getattr(permission_qs, f"can_{required_permission}", False)
 

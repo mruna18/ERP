@@ -377,7 +377,7 @@ class CreateCashTransactionView(APIView):
 class UpdateCashLedgerView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Cash Ledger" 
-    required_permission = "update"
+    required_permission = "edit"
     
 
     def put(self, request, pk):
@@ -416,7 +416,7 @@ class DeleteCashLedgerView(APIView):
 class ListCashLedgersView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Cash Ledger" 
-    required_permission = "view"
+    required_permission = "get_using_post"
     
 
     def get(self, request, company_id):
@@ -428,7 +428,7 @@ class ListCashLedgersView(APIView):
 class GetCashLedgerByIdView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Cash Ledger" 
-    required_permission = "view"
+    required_permission = "view_specific"
     
 
     def get(self, request, pk):
@@ -520,7 +520,7 @@ class BankToBankTransferView(APIView):
 class ListBankTransfersView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Bank Transfer" 
-    required_permission = "view"
+    required_permission = "get_using_post"
    
 
     def get(self, request, company_id):
@@ -542,7 +542,7 @@ class ListBankTransfersView(APIView):
 class GetBankTransferView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Bank Transfer" 
-    required_permission = "view"
+    required_permission = "view_specific"
     
 
     def get(self, request, pk):
@@ -561,7 +561,7 @@ class GetBankTransferView(APIView):
 class UpdateBankToBankTransferView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Bank Transfer" 
-    required_permission = "update"
+    required_permission = "edit"
     
 
     def put(self, request, transfer_id):

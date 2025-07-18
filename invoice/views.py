@@ -25,10 +25,10 @@ from staff.permission import *
 class GETCompanyBankAccountView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Bank Transaction"
-    required_permission = "view"
+    required_permission = "get_using_post"
 
     def post(self, request):
-        company_id = request.data.get("company")
+        company_id = get_company_id(request, self)
         if not company_id:
             return Response({
                 "status": 500,
@@ -68,10 +68,10 @@ class POSTCompanyBankAccountView(APIView):
 class UpdateBankAccountView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Bank Transaction"
-    required_permission = "update"
+    required_permission = "edit"
 
     def put(self, request, pk):
-        company_id = request.data.get("company")
+        company_id = get_company_id(request, self)
         if not company_id:
             return Response({
                 "status": 500,
@@ -108,19 +108,19 @@ class DeleteBankAccountView(APIView):
     required_permission = "delete"
 
     def delete(self, request, pk):
-        company_id = request.data.get("company")
+        company_id = get_company_id(request, self)
         if not company_id:
             return Response({
                 "status": 400,
-                "message": "Missing 'company' in request body."
+                "message": "Missing 'company' ID."
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             bank_account = BankAccount.objects.get(pk=pk, company_id=company_id, deleted=False)
         except BankAccount.DoesNotExist:
             return Response({
-                "status": 500,
-                "message": "Bank account not found for this company or already deleted."
+                "status": 404,
+                "message": "Bank account not found or already deleted."
             }, status=status.HTTP_404_NOT_FOUND)
 
         bank_account.deleted = True
@@ -130,6 +130,7 @@ class DeleteBankAccountView(APIView):
             "status": 200,
             "message": "Bank account soft-deleted successfully."
         }, status=status.HTTP_200_OK)
+
 
 #!##################################INVOICE##############################################
 class CreateInvoiceView(APIView):
@@ -144,7 +145,7 @@ class CreateInvoiceView(APIView):
         serializer.is_valid(raise_exception=True)
         print('jhfdhbf')
 
-        company_id = request.data.get("company") or request.headers.get("company")
+        company_id = get_company_id(request, self) or request.headers.get("company")
 
         if not company_id:
             return Response({"detail": "Company ID is required.", "status": 400})
@@ -350,7 +351,7 @@ class CreateInvoiceView(APIView):
 class InvoiceListView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Invoice"
-    required_permission = "view"
+    required_permission = "get_using_post"
 
     def post(self, request):
         company_id = get_company_id(request, self)
@@ -406,7 +407,7 @@ class InvoiceListView(APIView):
 class InvoiceDetailView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Invoice"
-    required_permission = "view"
+    required_permission = "view_specific"
 
     def get(self, request, pk):
         try:
@@ -460,11 +461,11 @@ class InvoiceDetailView(APIView):
 class UpdateInvoiceView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Invoice"
-    required_permission = "update"
+    required_permission = "edit"
     
 
     def put(self, request, pk):
-        company_id = request.data.get("company")
+        company_id = get_company_id(request, self)
         if not company_id:
             return Response({"detail": "Company ID is required.", "status": 500})
 
@@ -613,7 +614,7 @@ class DeleteInvoiceView(APIView):
  
 
     def delete(self, request, pk):
-        company_id = request.data.get("company")
+        company_id = get_company_id(request, self)
         if not company_id:
             return Response({"detail": "Company ID is required.", "status":500})
 
