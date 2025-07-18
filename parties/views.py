@@ -13,8 +13,9 @@ from parties.models import *
 from staff.permission import *
 
 class PartyCreateView(APIView):
-    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
-    
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Parties"
+    required_permission = "create"
 
     def post(self, request):
         data = request.data.copy()
@@ -78,7 +79,9 @@ class PartyCreateView(APIView):
 #         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class PartyUpdateView(APIView):
-    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Parties"
+    required_permission = "edit"
 
 
     def put(self, request, pk):
@@ -105,7 +108,9 @@ class PartyUpdateView(APIView):
 
 
 class PartyDeleteView(APIView):
-    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Parties"
+    required_permission = "delete"
 
 
     def delete(self, request, pk):
@@ -123,7 +128,9 @@ class PartyDeleteView(APIView):
         return Response({"message": "Party deleted successfully (soft delete)."}, status=200)
 
 class PartyDetailView(APIView):
-    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Parties"
+    required_permission = "view_specific"
 
 
     def get(self, request, company_id, pk):
@@ -142,7 +149,9 @@ class PartyDetailView(APIView):
 
 #?
 class PartyListPostView(APIView):
-    permission_classes =[IsAuthenticated, IsCompanyAdminOrAssigned]
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Parties"
+    required_permission = "get_using_post"
  
 
     def post(self, request):

@@ -142,10 +142,28 @@ class CreateInvoiceView(APIView):
     def post(self, request):
         serializer = InvoiceSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        print('jhfdhbf')
 
+        company_id = request.data.get("company") or request.headers.get("company")
+
+        if not company_id:
+            return Response({"detail": "Company ID is required.", "status": 400})
+
+        # Try to get customer (company owner)
         customer = Customer.objects.filter(user=request.user).first()
+        staff = None
+
+        # If not a customer, try to get as staff
         if not customer:
-            return Response({"detail": "Customer not found.", "status": 500})
+            staff = StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).first()
+            if not staff:
+                return Response({"detail": "Unauthorized user.", "status": 500})
+
+
+        # customer = Customer.objects.filter(user=request.user).first()
+        # # print(customer)
+        # if not customer:
+        #     return Response({"detail": "Customer not found.", "status": 500})
 
         data = serializer.validated_data
         company = data["company"]
@@ -333,13 +351,15 @@ class InvoiceListView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
     required_module = "Invoice"
     required_permission = "view"
- 
-
 
     def post(self, request):
-        company_id = request.data.get("company")
+        company_id = get_company_id(request, self)
         if not company_id:
-            return Response({"detail": "Company ID is required.", "status":500})
+            return Response({"detail": "Company ID is required.", "status": 400})
+
+        user_context = get_user_context(request, company_id)
+        if not user_context:
+            return Response({"detail": "Unauthorized user.", "status": 403})
 
         invoices = (
             Invoice.objects
@@ -348,9 +368,8 @@ class InvoiceListView(APIView):
             .order_by("-id")
         )
 
-        response_data = []
-        for invoice in invoices:
-            response_data.append({
+        response_data = [
+            {
                 "invoice_id": invoice.id,
                 "invoice_number": invoice.invoice_number,
                 "company_id": invoice.company.id,
@@ -366,9 +385,12 @@ class InvoiceListView(APIView):
                 "notes": invoice.notes,
                 "created_by": invoice.created_by.username,
                 "created_at": invoice.created_at,
-            })
+            }
+            for invoice in invoices
+        ]
 
         return Response(response_data)
+
 
 
 # class InvoiceListView(ListAPIView):
@@ -388,10 +410,18 @@ class InvoiceDetailView(APIView):
 
     def get(self, request, pk):
         try:
-            invoice = Invoice.objects.get(pk=pk)
+            invoice = Invoice.objects.select_related("company", "party", "invoice_type").prefetch_related("items__item").get(pk=pk)
         except Invoice.DoesNotExist:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        company_id = invoice.company.id  # Extract company from invoice
+
+        # Verify access Customer or Staff for this company
+        user_context = get_user_context(request, company_id)
+        if not user_context:
+            return Response({"detail": "Unauthorized user."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Build item breakdown
         items = []
         for item in invoice.items.all():
             items.append({
@@ -420,12 +450,11 @@ class InvoiceDetailView(APIView):
             "total": invoice.total,
             "notes": invoice.notes,
             "created_at": invoice.created_at,
-          
             "items": items
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
-    
+  
 
 
 class UpdateInvoiceView(APIView):

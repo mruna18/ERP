@@ -13,6 +13,8 @@ urlpatterns = [
 
     #staff
     path('create-staff/', CreateStaffView.as_view(), name='create-staff'),
+    path('update-staff/', UpdateStaffView.as_view(), name='update-staff'),
+
     # path("company/<int:company_id>/staff/<int:pk>/assign-role/", AssignRoleToStaffView.as_view(), name="assign-role-to-staff"),
 
 
@@ -24,7 +26,7 @@ urlpatterns = [
     path("roles/<int:company_id>/list/", ListStaffRolesView.as_view(), name="list-staff-roles"),
 
     #permission
-    # path("permissions/", ListAllPermissionsView.as_view(), name="list-permissions"),
+    path("permissions/", ListAllPermissionsView.as_view(), name="list-permissions"),
     # path("roles/permissions/", UpdateRolePermissionsView.as_view(), name="update-role-permissions"),
 
     #module

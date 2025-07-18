@@ -9,64 +9,57 @@ from customer.models import Customer
 from companies.models import *
 from staff.permission import *
 
+from rest_framework import status
+
 class ItemCreateView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
-    required_module = "Items" 
+    required_module = "Items"
     required_permission = "create"
-   
 
     def post(self, request):
+        company_id = request.data.get("company")
+        if not company_id:
+            return Response({"error": "'company' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        customer, company, error = get_user_context(request, company_id)
+        if error:
+            return error
+
         serializer = ItemSerializer(data=request.data)
         if not serializer.is_valid():
             error_messages = [f"{field}: {error[0]}" for field, error in serializer.errors.items()]
-            return Response({"error": " | ".join(error_messages)}, status=400)
-
-        company_id = request.data.get("company")
-        if not company_id:
-            return Response({"error": "'company' is required."}, status=400)
-
-        try:
-            customer = Customer.objects.get(user=request.user)
-        except Customer.DoesNotExist:
-            return Response({"error": "Customer not found."}, status=404)
-
-        try:
-            company = Company.objects.get(id=company_id, is_active=True)
-        except Company.DoesNotExist:
-            return Response({"error": "Company not found."}, status=404)
-
-        if company.owner != customer:
-            return Response({"error": "Company does not belong to this customer."}, status=403)
+            return Response({"error": " | ".join(error_messages)}, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
+
+        # Safely parse numeric fields
         try:
-            name = data.get("name")
-            code = data.get("code")
-            quantity = data.get("quantity", 0)
-            description = data.get("description", "")
             price = float(data.get("price", 0))
             sales_price = float(data.get("sales_price", 0))
             tax_applied = data.get("tax_applied", False)
             tax_percent = float(data.get("tax_percent", 0))
-            unit_type = data.get("unit")
         except (TypeError, ValueError):
-            return Response({"error": "Invalid data type in numeric fields."}, status=400)
+            return Response({"error": "Invalid data type in numeric fields."}, status=status.HTTP_400_BAD_REQUEST)
 
         if price > 1e7 or sales_price > 1e7:
-            return Response({"error": "Price or Sales Price is too large."}, status=400)
+            return Response({"error": "Price or Sales Price is too large."}, status=status.HTTP_400_BAD_REQUEST)
 
-        final_price = price + (price * tax_percent / 100) if tax_applied else price
-        final_sales_price = sales_price + (sales_price * tax_percent / 100) if tax_applied else sales_price
+        # Final price calculation
+        def apply_tax(base, tax):
+            return round(base + (base * tax / 100), 2) if tax_applied else round(base, 2)
+
+        final_price = apply_tax(price, tax_percent)
+        final_sales_price = apply_tax(sales_price, tax_percent)
 
         with transaction.atomic():
             item = Item.objects.create(
-                name=name,
-                code=code,
-                description=description,
-                quantity=quantity,
-                unit=unit_type,
-                price=round(final_price, 2),
-                sales_price=round(final_sales_price, 2),
+                name=data["name"],
+                code=data["code"],
+                description=data.get("description", ""),
+                quantity=data.get("quantity", 0),
+                unit=data["unit"],
+                price=final_price,
+                sales_price=final_sales_price,
                 tax_applied=tax_applied,
                 tax_percent=round(tax_percent, 2),
                 company=company,
@@ -78,139 +71,122 @@ class ItemCreateView(APIView):
             "message": "Item created successfully.",
             "item_id": item.id,
             "status": 200
-        })
+        }, status=status.HTTP_201_CREATED)
+
 
 
 # list
 
 class ListItemView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
-    required_module = "Items" 
-    required_permission = "view"
-
+    required_module = "Items"
+    required_permission = "get_using_post"
 
     def post(self, request):
-        customer_id = request.data.get("customer_id")
         company_id = request.data.get("company")
+        customer_id = request.data.get("customer_id")
 
-        if not customer_id or not company_id:
-            return Response({"detail": "customer_id and company are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not company_id or not customer_id:
+            return Response({"detail": "customer_id and company are required."}, status=400)
 
-        customer = Customer.objects.filter(id=customer_id, user=request.user, is_active=True).first()
-        if not customer:
-            return Response({"detail": "Customer not found or inactive."}, status=status.HTTP_404_NOT_FOUND)
+        user, company, error = get_user_context(request, company_id)
+        if error:
+            return error
 
-        company = Company.objects.filter(id=company_id, is_active=True).first()
-        if not company:
-            return Response({"detail": "Company not found or inactive."}, status=status.HTTP_404_NOT_FOUND)
+        if isinstance(user, Customer):
+            if user.id != int(customer_id):
+                return Response({"detail": "Customer ID mismatch."}, status=403)
+        elif isinstance(user, StaffProfile):
+            if user.company.id != int(company_id):
+                return Response({"detail": "Unauthorized staff for this company."}, status=403)
+        else:
+            return Response({"detail": "Unauthorized user."}, status=403)
 
         items = Item.objects.filter(company=company, is_active=True)
         serializer = ItemSerializer(items, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=200)
+
 
 
 
 # get by id
 class RetrieveItemView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
-    required_module = "Items" 
-    required_permission = "view"
- 
-    def get(self, request, company_id, pk):
-        customer = Customer.objects.filter(user=request.user, is_active=True).first()
-        if not customer:
-            return Response({"detail": "Customer not found or inactive."}, status=status.HTTP_404_NOT_FOUND)
+    required_module = "Items"
+    required_permission = "can_view_specific"
 
-        try:
-            company = Company.objects.get(id=company_id, owner=customer, is_active=True)
-        except Company.DoesNotExist:
-            return Response({"detail": "Company not found or not owned by this customer."}, status=status.HTTP_404_NOT_FOUND)
+    def get(self, request, company_id, pk):
+        user, company, error = get_user_context(request, company_id)
+        if error:
+            return error
 
         try:
             item = Item.objects.get(pk=pk, company=company, is_active=True)
         except Item.DoesNotExist:
-            return Response({"detail": "Item not found for this company."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Item not found for this company."}, status=404)
 
         serializer = ItemSerializer(item)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=200)
 
 
 
 # PUT /items/<int:company_id>/<int:pk>/
 class UpdateItemView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
-    required_module = "Items" 
-    required_permission = "update"
-    
+    required_module = "Items"
+    required_permission = "edit"
 
     def put(self, request, company_id, pk):
-        customer = Customer.objects.filter(user=request.user).first()
-        if not customer:
-            return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            company = Company.objects.get(id=company_id, owner=customer, is_active=True)
-        except Company.DoesNotExist:
-            return Response({"detail": "Company not found or unauthorized."}, status=status.HTTP_404_NOT_FOUND)
+        customer, company, error = get_user_context(request, company_id)
+        if error:
+            return error
 
         try:
             item = Item.objects.get(pk=pk, company=company, is_active=True)
         except Item.DoesNotExist:
-            return Response({"detail": "Item not found for this company."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Item not found."}, status=404)
 
         serializer = ItemSerializer(instance=item, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        try:
-            price = float(data.get("price", item.price))
-            sales_price = float(data.get("sales_price", item.sales_price))
-            tax_applied = data.get("tax_applied", item.tax_applied)
-            tax_percent = float(data.get("tax_percent", item.tax_percent))
-        except ValueError:
-            return Response({"detail": "Price or tax values must be float-compatible."}, status=status.HTTP_400_BAD_REQUEST)
+        price = float(data.get("price", item.price))
+        sales_price = float(data.get("sales_price", item.sales_price))
+        tax_applied = data.get("tax_applied", item.tax_applied)
+        tax_percent = float(data.get("tax_percent", item.tax_percent))
 
         if tax_applied:
             price += price * (tax_percent / 100)
             sales_price += sales_price * (tax_percent / 100)
 
         with transaction.atomic():
-            item.name = data.get("name", item.name)
-            item.code = data.get("code", item.code)
-            item.description = data.get("description", item.description)
-            item.quantity = data.get("quantity", item.quantity)
-            item.unit = data.get("unit", item.unit)
-            item.price = price
-            item.sales_price = sales_price
+            for field in ["name", "code", "description", "quantity", "unit"]:
+                setattr(item, field, data.get(field, getattr(item, field)))
+
+            item.price = round(price, 2)
+            item.sales_price = round(sales_price, 2)
             item.tax_applied = tax_applied
-            item.tax_percent = tax_percent
+            item.tax_percent = round(tax_percent, 2)
             item.save()
 
-        return Response({"msg": "Item updated successfully."}, status=status.HTTP_200_OK)
-
+        return Response({"msg": "Item updated successfully."}, status=200)
 
 # DELETE /items/<int:company_id>/<int:pk>/
 class DeleteItemView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
-    required_module = "Items" 
+    required_module = "Items"
     required_permission = "delete"
-    
 
     def delete(self, request, company_id, pk):
-        customer = Customer.objects.filter(user=request.user).first()
-        if not customer:
-            return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            company = Company.objects.get(id=company_id, owner=customer, is_active=True)
-        except Company.DoesNotExist:
-            return Response({"detail": "Company not found or unauthorized."}, status=status.HTTP_404_NOT_FOUND)
+        customer, company, error = get_user_context(request, company_id)
+        if error:
+            return error
 
         try:
             item = Item.objects.get(pk=pk, company=company, is_active=True)
         except Item.DoesNotExist:
-            return Response({"detail": "Item not found for this company."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Item not found."}, status=404)
 
         item.is_active = False
         item.save()
-        return Response({"msg": "Item soft-deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"msg": "Item soft-deleted successfully."}, status=204)

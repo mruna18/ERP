@@ -26,7 +26,7 @@ class Role(models.Model):
 class ModulePermission(models.Model):
     job_role = models.ForeignKey(Role, on_delete=models.DO_NOTHING, related_name='permissions')
     company = models.ForeignKey(Company, on_delete=models.DO_NOTHING, related_name="module_permissions")
-    module_name = models.CharField(max_length=100)  # e.g., 'Sales Voucher', 'Inventory'
+    required_module = models.CharField(max_length=100)  # e.g., 'Sales Voucher', 'Inventory'
 
     can_view = models.BooleanField(default=False)
     can_create = models.BooleanField(default=False)
@@ -36,11 +36,11 @@ class ModulePermission(models.Model):
     can_get_using_post = models.BooleanField(default=False)
 
     class Meta:
-        unique_together = ('job_role', 'company', 'module_name')
+        unique_together = ('job_role', 'company', 'required_module')
         
 
     def __str__(self):
-        return f"{self.job_role.name} - {self.module_name}"
+        return f"{self.job_role.name} - {self.required_module}"
 
 
 class StaffProfile(models.Model):

@@ -21,7 +21,7 @@ class ModulePermissionAdmin(admin.ModelAdmin):
     list_display = ('id',
         'job_role',
         'company',
-        'module_name',
+        'required_module',
         'can_view',
         'can_create',
         'can_edit',
@@ -29,8 +29,8 @@ class ModulePermissionAdmin(admin.ModelAdmin):
         'can_view_specific',
         'can_get_using_post',
     )
-    list_filter = ('company', 'job_role', 'module_name')
-    search_fields = ('job_role__name', 'company__name', 'module_name')
+    list_filter = ('company', 'job_role', 'required_module')
+    search_fields = ('job_role__name', 'company__name', 'required_module')
 
 
 class ModuleAdmin(admin.ModelAdmin):

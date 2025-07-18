@@ -15,3 +15,12 @@ class ModuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Module
         fields = ['id', 'name']
+
+
+class StaffProfileSerializer(serializers.ModelSerializer):
+    job_role_name = serializers.CharField(source='job_role.name', read_only=True)
+    company_name = serializers.CharField(source='company.name', read_only=True)
+
+    class Meta:
+        model = StaffProfile
+        fields = ['id', 'username', 'email', 'job_role_name', 'company_name', 'is_active', 'created_at']

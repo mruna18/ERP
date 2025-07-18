@@ -2,18 +2,19 @@ from rest_framework.permissions import BasePermission
 from companies.models import Company
 from staff.models import StaffProfile
 from customer.models import Customer
-from .models import ModulePermission  # adjust import based on where you keep it
+from .models import ModulePermission
+from rest_framework.response import Response
 
 
-def get_company_id(request, view):
+def get_company_id(request, view=None):
     return (
-        request.data.get("company_id")
-        or request.data.get("company")
-        or request.query_params.get("company")
-        or request.query_params.get("company_id")
-        or view.kwargs.get("company_id")
+        request.headers.get("company") or
+        request.data.get("company_id") or
+        request.data.get("company") or
+        request.query_params.get("company_id") or
+        request.query_params.get("company") or
+        (view.kwargs.get("company_id") if view else None)
     )
-
 
 class IsCompanyAdminOrAssigned(BasePermission):
     """
@@ -30,27 +31,26 @@ class IsCompanyAdminOrAssigned(BasePermission):
         try:
             customer = Customer.objects.get(user=request.user)
         except Customer.DoesNotExist:
-            return False
+            customer = None
 
-        # Allow if customer is owner of the company
-        if Company.objects.filter(id=company_id, owner=customer, is_active=True).exists():
+        # Allow if user is the owner of the company
+        if customer and Company.objects.filter(id=company_id, owner=customer, is_active=True).exists():
             return True
 
-        # Allow if staff assigned to company
+        # Allow if staff assigned to the company
         return StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).exists()
 
 
 class HasModulePermission(BasePermission):
-    """
-    Checks if a staff has required module permission based on HTTP method
-    """
-
     def has_permission(self, request, view):
-        user = request.user
-        company_id = get_company_id(request, view)
-        module_name = getattr(view, 'module_name', None)
+        required_module = getattr(view, 'required_module', None)
+        required_permission = getattr(view, 'required_permission', None)
 
-        if not user or not user.is_authenticated or not company_id or not module_name:
+        if not required_module or not required_permission:
+            return False
+
+        company_id = get_company_id(request, view)
+        if not company_id:
             return False
 
         try:
@@ -58,30 +58,71 @@ class HasModulePermission(BasePermission):
         except Customer.DoesNotExist:
             customer = None
 
-        # Owner has full access
         if customer and Company.objects.filter(id=company_id, owner=customer, is_active=True).exists():
             return True
 
-        # Now check staff permissions
         staff = StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).first()
-        if not staff or not staff.role:
+        if not staff or not staff.job_role:
             return False
 
-        method_map = {
-            'GET': 'can_view',
-            'POST': 'can_create',
-            'PUT': 'can_edit',
-            'PATCH': 'can_edit',
-            'DELETE': 'can_delete'
-        }
+        permission_qs = ModulePermission.objects.filter(
+            job_role=staff.job_role,
+            required_module__iexact=required_module,
+            company_id=company_id
+        ).first()
 
-        action_field = method_map.get(request.method)
-        if not action_field:
+        if not permission_qs:
             return False
 
-        return ModulePermission.objects.filter(
-            job_role=staff.role,
-            company_id=company_id,
-            module_name=module_name,
-            **{action_field: True}
-        ).exists()
+        return getattr(permission_qs, f"can_{required_permission}", False)
+
+
+#! check the staff and customer
+
+# def get_user_context(request, company_id):
+#     """
+#     Returns a dict: {'customer': <Customer obj> or None, 'staff': <StaffProfile obj> or None}
+#     Raises error if user is not authorized for this company.
+#     """
+#     customer = Customer.objects.filter(user=request.user).first()
+#     staff = None
+
+#     if not customer:
+#         staff = StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).first()
+#         if not staff:
+#             return None  # Unauthorized
+
+#     return {
+#         'customer': customer,
+#         'staff': staff
+#     }
+
+def get_user_context(request, company_id):
+    """
+    Returns a tuple: (customer, company, error Response or None)
+    """
+    customer = Customer.objects.filter(user=request.user).first()
+    staff = None
+    company = None
+
+    if customer:
+        company = Company.objects.filter(id=company_id, customer=customer).first()
+        if not company:
+            return customer, None, Response({"detail": "Invalid company for this customer."}, status=403)
+    else:
+        staff = StaffProfile.objects.filter(user=request.user, company_id=company_id, is_active=True).first()
+        if not staff:
+            return None, None, Response({"detail": "Unauthorized staff."}, status=403)
+        company = staff.company
+
+    return customer or staff, company, None
+
+
+
+#! 
+def extract_company_from_context(context):
+    if context['customer']:
+        return context['customer'].company
+    elif context['staff']:
+        return context['staff'].company
+    return None
