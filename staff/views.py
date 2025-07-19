@@ -365,23 +365,55 @@ class ListAllPermissionsView(APIView):
             "permissions": data
         })
 
+#!.
 class MyCompaniesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        companies = Company.objects.filter(staffprofile__user=user,is_active=True).distinct()
-        
-        data = [
-            {
-                "id": company.id,
-                "name": company.name,
-            } for company in companies
-        ]
+
+        companies_data = []
+        admin_companies = []
+        staff_companies = []
+        selected_company_id = None
+
+        # Check if user is a Customer (admin user)
+        try:
+            customer = Customer.objects.get(user=user)
+            companies = Company.objects.filter(owner=customer, is_active=True)
+            for c in companies:
+                comp_data = {
+                    "id": c.id,
+                    "name": c.name,
+                    "gst_number": c.gst_number,
+                    "phone": c.phone,
+                    "created_at": c.created_at,
+                }
+                companies_data.append(comp_data)
+                admin_companies.append(comp_data)
+            selected_company_id = customer.selected_company.id if customer.selected_company else None
+
+        except Customer.DoesNotExist:
+            # If not customer, check if user is staff
+            staff_profiles = StaffProfile.objects.filter(user=user, is_active=True)
+            for sp in staff_profiles:
+                c = sp.company
+                comp_data = {
+                    "id": c.id,
+                    "name": c.name,
+                    "gst_number": c.gst_number,
+                    "phone": c.phone,
+                    "created_at": c.created_at,
+                    "role": sp.job_role.name,
+                }
+                companies_data.append(comp_data)
+                staff_companies.append(comp_data)
 
         return Response({
-            "status": 200,
-            "companies": data
+            "data": companies_data,
+            "admin": admin_companies,
+            "staff": staff_companies,
+            "selected_company_id": selected_company_id,
         })
 
 # from django.core.cache import cache  # ✅ Import cache

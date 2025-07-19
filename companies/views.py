@@ -195,29 +195,85 @@ class DashboardStatsView(APIView):
         today = timezone.now().date()
 
         # Invoice Stats
-        total_sales = Invoice.objects.filter(company_id=company_id, invoice_type=1,is_deleted=False).count()
+        total_sales = Invoice.objects.filter(company_id=company_id, invoice_type=1, is_deleted=False).count()
         total_purchases = Invoice.objects.filter(company_id=company_id, invoice_type=2, is_deleted=False).count()
         today_sales = Invoice.objects.filter(company_id=company_id, invoice_type=1, created_at__date=today, is_deleted=False).count()
 
         # Amounts
-        total_received = Invoice.objects.filter(company_id=company_id, invoice_type=1).aggregate(total=Sum('amount_paid'))['total'] or 0
-        total_paid = Invoice.objects.filter(company_id=company_id, invoice_type=2).aggregate(total=Sum('amount_paid'))['total'] or 0
+        total_received = Invoice.objects.filter(company_id=company_id, invoice_type=1).aggregate(
+            total=Sum('amount_paid')
+        )['total'] or 0
 
-        # Outstanding
-        receivables = Invoice.objects.filter(company_id=company_id, invoice_type=1).aggregate(
+        total_paid = Invoice.objects.filter(company_id=company_id, invoice_type=2).aggregate(
+            total=Sum('amount_paid')
+        )['total'] or 0
+
+        # Receivables & Advances from customers
+        receivable_agg = Invoice.objects.filter(company_id=company_id, invoice_type=1).aggregate(
             due=Sum(F('total') - F('amount_paid'), output_field=FloatField())
-        )['due'] or 0
+        )
+        receivable_due = receivable_agg['due'] or 0
+        if receivable_due >= 0:
+            receivables = receivable_due
+            advance_from_customers = 0
+        else:
+            receivables = 0
+            advance_from_customers = abs(receivable_due)
 
-        payables = Invoice.objects.filter(company_id=company_id, invoice_type=2).aggregate(
+        advance_customers = (
+            Invoice.objects.filter(company_id=company_id, invoice_type=1, is_deleted=False)
+            .annotate(extra_paid=F('amount_paid') - F('total'))
+            .filter(extra_paid__gt=0)
+            .values('party_id', 'party__name')
+            .annotate(total_advance=Sum('extra_paid'))
+        )
+
+        # Payables & Advances to suppliers
+        payable_agg = Invoice.objects.filter(company_id=company_id, invoice_type=2).aggregate(
             due=Sum(F('total') - F('amount_paid'), output_field=FloatField())
-        )['due'] or 0
-
-        # Low Stock
-        # low_stock_items = Item.objects.filter(company_id=company_id, quantity__lte=F('minimum_stock')).count()
+        )
+        payable_due = payable_agg['due'] or 0
+        if payable_due >= 0:
+            payables = payable_due
+            advance_to_suppliers = 0
+        else:
+            payables = 0
+            advance_to_suppliers = abs(payable_due)
 
         # Cash & Bank
-        cash_balance = CashLedger.objects.filter(company_name_id=company_id).aggregate(balance=Sum('current_balance'))['balance'] or 0
-        bank_balance = BankAccount.objects.filter(company_id=company_id).aggregate(balance=Sum('current_balance'))['balance'] or 0
+        cash_balance = CashLedger.objects.filter(company_name_id=company_id).aggregate(
+            balance=Sum('current_balance')
+        )['balance'] or 0
+
+        bank_balance = BankAccount.objects.filter(company_id=company_id).aggregate(
+            balance=Sum('current_balance')
+        )['balance'] or 0
+
+        # Party-wise payables
+        payable_parties = (
+            Invoice.objects.filter(company_id=company_id, invoice_type=2, is_deleted=False)
+            .values('party_id', 'party__name')
+            .annotate(
+                total_due=Sum(F('total') - F('amount_paid'), output_field=FloatField())
+            )
+            .filter(total_due__gt=0)
+        )
+
+        # Invoice-wise payables
+        payable_invoices = (
+            Invoice.objects.filter(company_id=company_id, invoice_type=2, is_deleted=False)
+            .annotate(due_amount=F('total') - F('amount_paid'))
+            .filter(due_amount__gt=0)
+            .values(
+                'id',
+                'invoice_number',  # Ensure this field exists; otherwise, replace with 'id'
+                'party__name',
+                'total',
+                'amount_paid',
+                'due_amount',
+                'created_at',
+            )
+        )
 
         return Response({
             "stats": {
@@ -227,9 +283,13 @@ class DashboardStatsView(APIView):
                 "total_received": total_received,
                 "total_paid": total_paid,
                 "receivables": receivables,
+                "advance_from_customers": advance_from_customers,
+                "advance_customers":advance_customers,
                 "payables": payables,
-                # "low_stock_items": low_stock_items,
+                "advance_to_suppliers": advance_to_suppliers,
                 "cash_balance": cash_balance,
-                "bank_balance": bank_balance
+                "bank_balance": bank_balance,
+                "payable_parties": payable_parties,
+                "payable_invoices": list(payable_invoices),
             }
         })

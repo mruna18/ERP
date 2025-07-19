@@ -10,6 +10,7 @@ from rest_framework_simplejwt.tokens import RefreshToken,TokenError
 from rest_framework.permissions import IsAuthenticated
 from .models import Customer
 from staff.permission import *
+from companies.serializers import *
 
 
 class RegisterView(APIView):
@@ -184,3 +185,5 @@ class CustomerDeleteView(APIView):
         customer.save()
 
         return Response({'msg': 'Customer soft deleted successfully'}, status=200)
+
+

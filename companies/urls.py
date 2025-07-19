@@ -10,4 +10,5 @@ urlpatterns = [
     path('select/', SelectCompanyView.as_view(), name='select-company'),
     # path('<int:company_id>/dashboard/', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('dashboard/', DashboardStatsView.as_view(), name='dashboard-stats'),
+   
 ]
