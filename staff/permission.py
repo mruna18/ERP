@@ -161,4 +161,9 @@ def extract_company_from_context(context):
         return context['customer'].company
     elif context['staff']:
         return context['staff'].company
-    return None
+    return 
+
+#! customer module
+class IsSuperAdminOrSelf(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return request.user.is_superuser or obj.user == request.user

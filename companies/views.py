@@ -4,6 +4,8 @@ from .serializers import *
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Sum, Count, Q,F,FloatField
+
 from companies.models import *
 from customer.models import *
 from companies.serializers import *
@@ -13,6 +15,9 @@ from staff.management.commands.seed_permissions import *
 from staff.permission import *
 from staff.constant import *
 from staff.models import *
+from invoice.models import *
+from payments.models import *
+from items.models import *
 
 
 class IsCustomer(BasePermission):
@@ -175,3 +180,56 @@ class SelectCompanyView(APIView):
         customer.selected_company = company
         customer.save()
         return Response({"msg": f"{company.name} set as selected company."})
+
+
+#! DASHBOARD
+
+class DashboardStatsView(APIView):
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned]
+
+    def get(self, request):
+        company_id = get_company_id(request, self)
+        if not company_id:
+            return Response({"error": "Invalid company"}, status=400)
+
+        today = timezone.now().date()
+
+        # Invoice Stats
+        total_sales = Invoice.objects.filter(company_id=company_id, invoice_type=1,is_deleted=False).count()
+        total_purchases = Invoice.objects.filter(company_id=company_id, invoice_type=2, is_deleted=False).count()
+        today_sales = Invoice.objects.filter(company_id=company_id, invoice_type=1, created_at__date=today, is_deleted=False).count()
+
+        # Amounts
+        total_received = Invoice.objects.filter(company_id=company_id, invoice_type=1).aggregate(total=Sum('amount_paid'))['total'] or 0
+        total_paid = Invoice.objects.filter(company_id=company_id, invoice_type=2).aggregate(total=Sum('amount_paid'))['total'] or 0
+
+        # Outstanding
+        receivables = Invoice.objects.filter(company_id=company_id, invoice_type=1).aggregate(
+            due=Sum(F('total') - F('amount_paid'), output_field=FloatField())
+        )['due'] or 0
+
+        payables = Invoice.objects.filter(company_id=company_id, invoice_type=2).aggregate(
+            due=Sum(F('total') - F('amount_paid'), output_field=FloatField())
+        )['due'] or 0
+
+        # Low Stock
+        # low_stock_items = Item.objects.filter(company_id=company_id, quantity__lte=F('minimum_stock')).count()
+
+        # Cash & Bank
+        cash_balance = CashLedger.objects.filter(company_name_id=company_id).aggregate(balance=Sum('current_balance'))['balance'] or 0
+        bank_balance = BankAccount.objects.filter(company_id=company_id).aggregate(balance=Sum('current_balance'))['balance'] or 0
+
+        return Response({
+            "stats": {
+                "total_sales": total_sales,
+                "total_purchases": total_purchases,
+                "today_sales": today_sales,
+                "total_received": total_received,
+                "total_paid": total_paid,
+                "receivables": receivables,
+                "payables": payables,
+                # "low_stock_items": low_stock_items,
+                "cash_balance": cash_balance,
+                "bank_balance": bank_balance
+            }
+        })

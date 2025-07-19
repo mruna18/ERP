@@ -30,38 +30,36 @@ class CreateStaffView(APIView):
         if not all([username, password, role_id, company_id]):
             return Response({"msg": "Missing required fields", "status": 500})
 
-        if StaffProfile.objects.filter(username=username, company_id=company_id).exists():
-            return Response({"msg": "Username already exists for this company", "status": 500})
-
-        try:
-            #
-            existing_user = User.objects.filter(username=username).first()
-            if existing_user:
-                return Response({"msg": "Username already exists in the system", "status": 500})
-
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=password
-            )
-        except IntegrityError:
-            return Response({"msg": "Username creation failed", "status": 500})
-
         try:
             company = Company.objects.get(id=company_id)
             role = Role.objects.get(id=role_id, company=company, deleted=False)
         except Company.DoesNotExist:
-            return Response({"msg": "Company not found", "status": 500}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"msg": "Company not found", "status": 500})
         except Role.DoesNotExist:
-            return Response({"msg": "Role not found in this company", "status": 500}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"msg": "Role not found in this company", "status": 500})
 
+        # Get or create user
+        user, created = User.objects.get_or_create(username=username)
+        if created:
+            user.email = email
+            user.set_password(password)
+            user.save()
+        else:
+           
+            pass
+
+        # Check if this username is already assigned in this company
+        if StaffProfile.objects.filter(user=user, company=company).exists():
+            return Response({"msg": "Username already exists in this company", "status": 500})
+
+        # Create staff profile
         staff = StaffProfile.objects.create(
             user=user,
             company=company,
             job_role=role,
             username=username,
             email=email,
-            password=make_password(password), 
+            password=make_password(password),  
             is_active=True
         )
 
@@ -71,6 +69,7 @@ class CreateStaffView(APIView):
             "data": serializer.data,
             "status": 201
         }, status=status.HTTP_201_CREATED)
+
 
 class UpdateStaffView(APIView):
     permission_classes = [IsAuthenticated, HasModulePermission, IsCompanyAdminOrAssigned]
@@ -153,22 +152,24 @@ class CreateStaffRoleView(APIView):
         except Company.DoesNotExist:
             return Response({"msg": "Company not found", "status": 500})
 
+        # Create role
         role = Role.objects.create(name=name, description=description, company=company)
 
         for perm in module_permissions_data:
-            module_id = perm.get("module_id")
-            if not module_id:
-                return Response({"msg": "Module ID is required in permissions","status":500})
+            required_module_name = perm.get("required_module")
+            if not required_module_name:
+                return Response({"msg": "Module name is required in permissions", "status": 500})
 
             try:
-                module = Module.objects.get(id=module_id)
+                module = Module.objects.get(name=required_module_name)
             except Module.DoesNotExist:
-                return Response({"msg": f"Module with ID {module_id} does not exist","status":500})
+                return Response({"msg": f"Module '{required_module_name}' does not exist", "status": 500})
 
             ModulePermission.objects.create(
                 job_role=role,
                 company=company,
-                module=module,
+                # module=module,
+                required_module=module.name,
                 can_view=perm.get("can_view", False),
                 can_create=perm.get("can_create", False),
                 can_edit=perm.get("can_edit", False),
@@ -186,6 +187,7 @@ class CreateStaffRoleView(APIView):
             },
             "status": 201
         })
+
     
 class ListStaffRolesView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
@@ -381,6 +383,45 @@ class MyCompaniesView(APIView):
             "status": 200,
             "companies": data
         })
+
+# from django.core.cache import cache  # ✅ Import cache
+
+# class MyCompaniesView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         user = request.user
+#         cache_key = f"my_companies_{user.id}"  # ✅ Unique cache key per user
+#         print(f"🗝️ Cache key: {cache_key}")
+
+#         cached_data = cache.get(cache_key)
+#         if cached_data:
+#             print("✅ Returning data from cache")
+#             return Response(cached_data)
+
+#         print("🔄 Cache miss — fetching from DB...")
+#         companies = Company.objects.filter(
+#             staffprofile__user=user, is_active=True
+#         ).distinct()
+
+#         data = [
+#             {
+#                 "id": company.id,
+#                 "name": company.name,
+#             } for company in companies
+#         ]
+
+#         response_data = {
+#             "status": 200,
+#             "companies": data
+#         }
+
+#         # ✅ Store in cache for 5 minutes
+#         cache.set(cache_key, response_data, timeout=60 * 5)
+#         print("💾 Data cached for 5 minutes")
+
+#         return Response(response_data)
+
 
 
 # class AssignRoleToStaffView(APIView):

@@ -124,7 +124,7 @@ class CustomerListView(APIView):
 
 # ----------- Retrieve Single Customer -----------
 class CustomerRetrieveView(APIView):
-    permission_classes =[IsAuthenticated]
+    permission_classes =[IsAuthenticated, IsSuperAdminOrSelf]
   
     def get(self, request, pk):
         try:
@@ -138,7 +138,7 @@ class CustomerRetrieveView(APIView):
 
 # ----------- Update Customer -----------
 class CustomerUpdateView(APIView):
-    permission_classes =[IsAuthenticated]
+    permission_classes =[IsAuthenticated,IsSuperAdminOrSelf]
 
     def put(self, request, pk):
         try:
@@ -158,7 +158,7 @@ class CustomerUpdateView(APIView):
 
             # Update related User fields
             user = customer.user
-            user.username = data.get('username', user.username)  # ← this is the key line
+            user.username = data.get('username', user.username)
             user.first_name = data.get('first_name', user.first_name)
             user.last_name = data.get('last_name', user.last_name)
             user.email = data.get('email', user.email)
