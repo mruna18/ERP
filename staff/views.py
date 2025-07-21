@@ -377,8 +377,8 @@ class MyCompaniesView(APIView):
         staff_companies = []
         selected_company_id = None
 
-        # Check if user is a Customer (admin user)
         try:
+            # Customer = Admin
             customer = Customer.objects.get(user=user)
             companies = Company.objects.filter(owner=customer, is_active=True)
             for c in companies:
@@ -394,18 +394,35 @@ class MyCompaniesView(APIView):
             selected_company_id = customer.selected_company.id if customer.selected_company else None
 
         except Customer.DoesNotExist:
-            # If not customer, check if user is staff
+            # Staff
             staff_profiles = StaffProfile.objects.filter(user=user, is_active=True)
             for sp in staff_profiles:
                 c = sp.company
+                role = sp.job_role
+
+                permissions_data = []
+                if role:
+                    for perm in role.permissions.all():
+                        permissions_data.append({
+                            "module": perm.required_module,
+                            "can_create": perm.can_create,
+                            "can_view": perm.can_view,
+                            "can_edit": perm.can_edit,
+                            "can_delete": perm.can_delete,
+                            "can_view_specific": perm.can_view_specific,
+                            "can_get_using_post": perm.can_get_using_post,
+                        })
+
                 comp_data = {
                     "id": c.id,
                     "name": c.name,
                     "gst_number": c.gst_number,
                     "phone": c.phone,
                     "created_at": c.created_at,
-                    "role": sp.job_role.name,
+                    "role": role.name if role else None,
+                    "permissions": permissions_data,
                 }
+
                 companies_data.append(comp_data)
                 staff_companies.append(comp_data)
 
@@ -415,6 +432,7 @@ class MyCompaniesView(APIView):
             "staff": staff_companies,
             "selected_company_id": selected_company_id,
         })
+
 
 # from django.core.cache import cache  # ✅ Import cache
 
