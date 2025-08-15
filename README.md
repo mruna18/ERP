@@ -1,16 +1,16 @@
 # ERP Management System (Backend)
 
-A lightweight **ERP backend system** built with Django and SQLite, designed to manage essential enterprise operations such as **employee management**, **attendance tracking**, and **leave allocation**.
+A lightweight **ERP System** built with **Django REST Framework** and **SQLite**, designed to manage essential enterprise operations such as **multi-company management**, **invoicing**, and **financial tracking**.
 
 ---
 
 ## 📌 Features
 - 🔐 **User Authentication & Role-Based Access**
-- 📅 **Attendance Management**
-- 📝 **Leave Request & Approval Flow**
-- 🏢 **Department & Employee Records**
+- 🏢 **Multi-Company Support**
+- 💰 **Invoicing with Tax & Discount Handling**
+- 📦 **Stock Validation & Product Management**
+- 📊 **Financial Dashboard with Cash/Bank Tracking**
 - 🗄 **SQLite Database** (Easily switchable to PostgreSQL, MySQL, etc.)
-
 ---
 
 ## 🛠 Tech Stack
