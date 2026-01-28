@@ -1,0 +1,222 @@
+/* Reuse base styles from Invoices */
+@import './Invoices.css';
+
+/* Payments page layout */
+.payments-page .payments-header {
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.payments-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-payment-in {
+  background: #27ae60;
+  border-color: #219a52;
+}
+
+.btn-payment-in:hover {
+  background: #219a52;
+}
+
+.btn-payment-out {
+  background: #e67e22;
+  border-color: #d35400;
+}
+
+.btn-payment-out:hover {
+  background: #d35400;
+}
+
+/* Summary cards */
+.payments-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-card {
+  padding: 1.25rem 1.5rem;
+  border-radius: 6px;
+  border: 1px solid #dfe6e9;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.summary-card .summary-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.35rem;
+}
+
+.summary-card .summary-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.summary-in .summary-value {
+  color: #27ae60;
+}
+
+.summary-out .summary-value {
+  color: #e67e22;
+}
+
+/* Tabs */
+.payments-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid #dfe6e9;
+  padding-bottom: 0;
+}
+
+.tab-btn {
+  padding: 0.6rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #7f8c8d;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+  color: #2c3e50;
+}
+
+.tab-btn.active {
+  color: #34495e;
+  border-bottom-color: #34495e;
+}
+
+/* Payment type badges (In / Out) */
+.payment-type-badge {
+  display: inline-block;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.payment-type-badge.type-in {
+  background: #d5f4e6;
+  color: #1e8449;
+  border: 1px solid #a9dfbf;
+}
+
+.payment-type-badge.type-out {
+  background: #fdebd0;
+  color: #b7950b;
+  border: 1px solid #f9e79f;
+}
+
+/* Table tweaks */
+.payments-table .amount-cell {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.payments-table .note-cell {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loading-text {
+  color: #7f8c8d;
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #7f8c8d;
+}
+
+.empty-state p {
+  margin-bottom: 1.25rem;
+}
+
+.empty-state-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Payment modals */
+.payment-modal {
+  max-width: 420px;
+}
+
+.payment-modal h2 {
+  margin-bottom: 0.35rem;
+}
+
+.modal-hint {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+  margin-bottom: 1.25rem;
+}
+
+.payment-modal .form-group {
+  margin-bottom: 1rem;
+}
+
+.payment-modal .form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #2c3e50;
+  margin-bottom: 0.4rem;
+}
+
+.payment-modal .form-group input,
+.payment-modal .form-group select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #dfe6e9;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.payment-modal .form-group input:focus,
+.payment-modal .form-group select:focus {
+  outline: none;
+  border-color: #34495e;
+  box-shadow: 0 0 0 2px rgba(52, 73, 94, 0.15);
+}
+
+.payment-modal .modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #ecf0f1;
+}
+
+.no-company-message {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #7f8c8d;
+}
+
+.no-company-message h2 {
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}

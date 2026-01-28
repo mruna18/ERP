@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8002'
 
 // Create axios instance
 const api = axios.create({
@@ -44,7 +44,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refreshToken')
         if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/customer/token/refresh/`, {
+          const response = await axios.post(`${API_BASE_URL}/api/token/refresh/`, {
             refresh: refreshToken,
           })
 

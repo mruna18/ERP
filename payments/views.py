@@ -21,7 +21,7 @@ import os
 from .utils import *
 from django.utils.text import slugify
 from django.conf import settings
-from staff.permission import *
+from staff.permission import get_company_id, IsCompanyAdminOrAssigned, HasModulePermission
 
 class CreatePaymentInView(APIView):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
@@ -255,8 +255,63 @@ class CreatePaymentOutView(APIView):
                 "note": payment.note
             }
         })
-    
-    
+
+
+class ListPaymentsView(APIView):
+    """List PaymentIn and PaymentOut for a company (POST with company id)."""
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Payment"
+    required_permission = "get_using_post"
+
+    def post(self, request):
+        company_id = get_company_id(request, self)
+        if not company_id:
+            return Response({"detail": "Company ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment_ins = (
+            PaymentIn.objects
+            .filter(company_id=company_id)
+            .select_related("invoice", "invoice__party", "bank_account")
+            .order_by("-payment_date", "-id")
+        )
+        payment_outs = (
+            PaymentOut.objects
+            .filter(company_id=company_id)
+            .select_related("invoice", "invoice__party", "bank_account")
+            .order_by("-payment_date", "-id")
+        )
+
+        def build_in(p):
+            return {
+                "id": p.id,
+                "type": "in",
+                "amount": p.amount,
+                "payment_date": p.payment_date.isoformat() if p.payment_date else None,
+                "note": p.note or "",
+                "invoice_id": p.invoice_id,
+                "invoice_number": p.invoice.invoice_number if p.invoice else None,
+                "party_name": p.invoice.party.name if p.invoice and p.invoice.party else None,
+                "bank_name": p.bank_account.bank_name if p.bank_account else None,
+            }
+
+        def build_out(p):
+            return {
+                "id": p.id,
+                "type": "out",
+                "amount": p.amount,
+                "payment_date": p.payment_date.isoformat() if p.payment_date else None,
+                "note": p.note or "",
+                "invoice_id": p.invoice_id,
+                "invoice_number": p.invoice.invoice_number if p.invoice else None,
+                "party_name": p.invoice.party.name if p.invoice and p.invoice.party else None,
+                "bank_name": p.bank_account.bank_name if p.bank_account else "Cash",
+            }
+
+        return Response({
+            "payment_ins": [build_in(p) for p in payment_ins],
+            "payment_outs": [build_out(p) for p in payment_outs],
+        })
+
 
 #! -- cash ledger --
 class CreateCashLedgerView(APIView):

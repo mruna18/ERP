@@ -2,8 +2,11 @@ from django.urls import path
 from .views import *
 
 urlpatterns = [
+    path("types/", InvoiceTypeListView.as_view(), name="invoice-types"),
+    path("payment-types/", PaymentTypeListView.as_view(), name="payment-types"),
     path("create/", CreateInvoiceView.as_view(), name="create-invoice"),
     path("<int:pk>/", InvoiceDetailView.as_view(), name="invoice-detail"),
+    path("<int:pk>/pdf/", InvoicePDFView.as_view(), name="invoice-pdf"),
     path("<int:pk>/update/", UpdateInvoiceView.as_view(), name="update-invoice"),
     path("<int:pk>/delete/", DeleteInvoiceView.as_view(), name="delete-invoice"),
     path("list/", InvoiceListView.as_view(), name="invoice-list"),

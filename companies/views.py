@@ -275,6 +275,28 @@ class DashboardStatsView(APIView):
             )
         )
 
+        # Chart-ready data for graphs
+        chart_data = {
+            "sales_vs_purchases": [
+                {"name": "Sales", "count": total_sales, "fill": "#3498db"},
+                {"name": "Purchases", "count": total_purchases, "fill": "#e67e22"},
+            ],
+            "cash_flow": [
+                {"name": "Total Received", "value": round(float(total_received), 2), "fill": "#27ae60"},
+                {"name": "Total Paid", "value": round(float(total_paid), 2), "fill": "#e74c3c"},
+                {"name": "Receivables", "value": round(float(receivables), 2), "fill": "#3498db"},
+                {"name": "Payables", "value": round(float(payables), 2), "fill": "#f39c12"},
+            ],
+            "balance_breakdown": [
+                {"name": "Receivables", "value": round(float(receivables), 2), "fill": "#3498db"},
+                {"name": "Payables", "value": round(float(payables), 2), "fill": "#e67e22"},
+                {"name": "Advance (Customers)", "value": round(float(advance_from_customers), 2), "fill": "#9b59b6"},
+                {"name": "Advance (Suppliers)", "value": round(float(advance_to_suppliers), 2), "fill": "#1abc9c"},
+                {"name": "Cash Balance", "value": round(float(cash_balance), 2), "fill": "#27ae60"},
+                {"name": "Bank Balance", "value": round(float(bank_balance), 2), "fill": "#34495e"},
+            ],
+        }
+
         return Response({
             "stats": {
                 "total_sales": total_sales,
@@ -284,12 +306,13 @@ class DashboardStatsView(APIView):
                 "total_paid": total_paid,
                 "receivables": receivables,
                 "advance_from_customers": advance_from_customers,
-                "advance_customers":advance_customers,
+                "advance_customers": advance_customers,
                 "payables": payables,
                 "advance_to_suppliers": advance_to_suppliers,
                 "cash_balance": cash_balance,
                 "bank_balance": bank_balance,
                 "payable_parties": payable_parties,
                 "payable_invoices": list(payable_invoices),
+                "chart_data": chart_data,
             }
         })

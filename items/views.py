@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
-from .models import Item
+from .models import Item, UnitType
 from .serializer import *
 from customer.models import Customer
 from companies.models import *
@@ -106,6 +106,43 @@ class ListItemView(APIView):
         serializer = ItemSerializer(items, many=True)
         return Response(serializer.data, status=200)
 
+
+
+class UnitTypeListView(APIView):
+    """
+    Simple list of all available units (global, not per-company).
+    Auto-creates default units if none exist.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Auto-create default units if they don't exist
+        default_units = [
+            {"name": "Piece", "code": "pcs"},
+            {"name": "Kilogram", "code": "kg"},
+            {"name": "Gram", "code": "g"},
+            {"name": "Liter", "code": "L"},
+            {"name": "Meter", "code": "m"},
+            {"name": "Box", "code": "box"},
+            {"name": "Pack", "code": "pack"},
+        ]
+        
+        for unit_data in default_units:
+            UnitType.objects.get_or_create(
+                name=unit_data["name"],
+                defaults={"code": unit_data["code"]}
+            )
+        
+        units = UnitType.objects.all().order_by("name")
+        data = [
+            {
+                "id": unit.id,
+                "name": unit.name,
+                "code": unit.code,
+            }
+            for unit in units
+        ]
+        return Response(data, status=200)
 
 
 

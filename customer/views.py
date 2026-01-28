@@ -112,6 +112,19 @@ class IsSuperAdmin(BasePermission):
         return request.user and request.user.is_authenticated and request.user.is_superuser
     
 
+# ----------- Get Current Customer (Me) -----------
+class CurrentCustomerView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            customer = Customer.objects.get(user=request.user, is_active=True)
+            serializer = CustomerSerializer(customer)
+            return Response(serializer.data)
+        except Customer.DoesNotExist:
+            return Response({'error': 'Customer profile not found'}, status=404)
+
+
 # ----------- List All Customers -----------
 class CustomerListView(APIView):
     permission_classes =[IsAuthenticated, IsSuperAdmin]

@@ -142,7 +142,8 @@ def get_user_context(request, company_id):
     company = None
 
     if customer:
-        company = Company.objects.filter(id=company_id, customer=customer).first()
+        # Company is linked to Customer via the 'owner' relation
+        company = Company.objects.filter(id=company_id, owner=customer).first()
         if not company:
             return customer, None, Response({"detail": "Invalid company for this customer."}, status=403)
     else:

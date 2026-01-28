@@ -1,4 +1,4 @@
-from .models import Party
+from .models import Party, PartyType
 from .serializers import PartySerializer
 from companies.models import Company
 from rest_framework.views import APIView
@@ -10,6 +10,20 @@ from django.db import transaction
 from parties.models import *
 from staff.models import *
 from staff.permission import *
+
+
+class PartyTypeListView(APIView):
+    """List party types (Customer, Supplier) for create form dropdown."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Auto-create default party types if they don't exist
+        PartyType.objects.get_or_create(name='Customer')
+        PartyType.objects.get_or_create(name='Supplier')
+        
+        party_types = PartyType.objects.all().order_by('id')
+        data = [{"id": pt.id, "name": pt.name} for pt in party_types]
+        return Response(data, status=status.HTTP_200_OK)
 
 
 

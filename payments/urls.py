@@ -3,6 +3,7 @@ from .views import *
 from django.conf.urls.static import static
 
 urlpatterns = [
+    path('list/', ListPaymentsView.as_view(), name='list-payments'),
     path('payment-in/', CreatePaymentInView.as_view(), name='create-payment-in'),
     path('payment-out/', CreatePaymentOutView.as_view(), name='create-payment-out'),
     path('cash-transactions/create/', CreateCashTransactionView.as_view(), name='create-cash-transaction'),

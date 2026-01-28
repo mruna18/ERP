@@ -3,7 +3,14 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from django.db import transaction
+from django.http import HttpResponse
 from rest_framework.generics import RetrieveAPIView, ListAPIView
+from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 from .models import *
 from items.models import Item
@@ -14,6 +21,47 @@ from django.db.models import Max
 from .utils import *
 from payments.models import *
 from staff.permission import *
+
+# Ensure PaymentStatus records exist (called once per request)
+def ensure_payment_statuses():
+    PaymentStatus.objects.get_or_create(id=1, defaults={"label": "Unpaid"})
+    PaymentStatus.objects.get_or_create(id=2, defaults={"label": "Partially Paid"})
+    PaymentStatus.objects.get_or_create(id=3, defaults={"label": "Paid"})
+
+
+class InvoiceTypeListView(APIView):
+    """List invoice types (Sales, Purchase) for create form dropdown.
+    Auto-creates default invoice types if none exist.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Auto-create default invoice types if they don't exist
+        default_types = [
+            {"name": "Sales Invoice", "code": "sales"},
+            {"name": "Purchase Invoice", "code": "purchase"},
+        ]
+        
+        for type_data in default_types:
+            InvoiceType.objects.get_or_create(
+                name=type_data["name"],
+                defaults={"code": type_data["code"]}
+            )
+        
+        types = InvoiceType.objects.all().order_by('id')
+        data = [{"id": t.id, "name": t.name, "code": t.code} for t in types]
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class PaymentTypeListView(APIView):
+    """List payment types (Cash, Bank, etc.) for Payment Out form."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        for name in ["Cash", "Bank"]:
+            PaymentType.objects.get_or_create(name=name)
+        types = PaymentType.objects.all().order_by('id')
+        return Response([{"id": t.id, "name": t.name} for t in types], status=status.HTTP_200_OK)
 
 
 # def generate_invoice_number(company):
@@ -251,8 +299,19 @@ class CreateInvoiceView(APIView):
         tax_total = 0.0
         invoice_total = 0.0
 
+        # Ensure PaymentStatus records exist
+        ensure_payment_statuses()
+
         with transaction.atomic():
             invoice_number = generate_invoice_number(company)
+
+            # Determine payment status before creating invoice
+            if amount_paid == 0:
+                payment_status_id = 1  # Unpaid
+            elif amount_paid < invoice_total:
+                payment_status_id = 2  # Partially Paid
+            else:
+                payment_status_id = 3  # Paid
 
             invoice = Invoice.objects.create(
                 company=company,
@@ -266,7 +325,8 @@ class CreateInvoiceView(APIView):
                 payment_mode=payment_mode,
                 payment_type=payment_type,
                 bank_account=bank_account,
-                amount_paid=amount_paid
+                amount_paid=amount_paid,
+                payment_status_id=payment_status_id
             )
 
             for row in item_rows:
@@ -305,14 +365,6 @@ class CreateInvoiceView(APIView):
             invoice.tax_amount = tax_total
             invoice.total = invoice_total
             invoice.remaining_balance = max(invoice_total - amount_paid, 0)
-
-            if amount_paid == 0:
-                invoice.payment_status_id = 1  # Unpaid
-            elif amount_paid < invoice_total:
-                invoice.payment_status_id = 2  # Partially Paid
-            else:
-                invoice.payment_status_id = 3  # Paid
-
             invoice.save()
 
             # Create bank transaction only for on_account and if bank provided
@@ -365,7 +417,7 @@ class InvoiceListView(APIView):
         invoices = (
             Invoice.objects
             .filter(company_id=company_id)
-            .select_related("company", "party", "invoice_type", "created_by")
+            .select_related("company", "party", "invoice_type", "created_by", "payment_status")
             .order_by("-id")
         )
 
@@ -378,13 +430,16 @@ class InvoiceListView(APIView):
                 "party_id": invoice.party.id,
                 "party_name": invoice.party.name,
                 "invoice_type": invoice.invoice_type.name,
+                "payment_status": invoice.payment_status.label if invoice.payment_status else "Unpaid",
                 "subtotal": invoice.subtotal,
                 "tax_amount": invoice.tax_amount,
                 "total": invoice.total,
+                "amount_paid": invoice.amount_paid,
+                "remaining_balance": invoice.remaining_balance,
                 "discount_percent": invoice.discount_percent,
                 "discount_amount": invoice.discount_amount,
                 "notes": invoice.notes,
-                "created_by": invoice.created_by.username,
+                "created_by": invoice.created_by.username if invoice.created_by else "",
                 "created_at": invoice.created_at,
             }
             for invoice in invoices
@@ -411,7 +466,7 @@ class InvoiceDetailView(APIView):
 
     def get(self, request, pk):
         try:
-            invoice = Invoice.objects.select_related("company", "party", "invoice_type").prefetch_related("items__item").get(pk=pk)
+            invoice = Invoice.objects.select_related("company", "party", "invoice_type", "payment_status").prefetch_related("items__item").get(pk=pk)
         except Invoice.DoesNotExist:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -444,18 +499,226 @@ class InvoiceDetailView(APIView):
             "party_name": invoice.party.name,
             "invoice_type_id": invoice.invoice_type.id,
             "invoice_type_name": invoice.invoice_type.name,
+            "payment_status": invoice.payment_status.label if invoice.payment_status else "Unpaid",
             "discount_percent": invoice.discount_percent,
             "discount_amount": invoice.discount_amount,
             "tax_amount": invoice.tax_amount,
             "subtotal": invoice.subtotal,
             "total": invoice.total,
+            "amount_paid": invoice.amount_paid,
+            "remaining_balance": invoice.remaining_balance,
             "notes": invoice.notes,
             "created_at": invoice.created_at,
             "items": items
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
-  
+
+
+def _fmt_currency(value):
+    """Format number as INR with symbol."""
+    return "₹ " + ("%.2f" % (float(value or 0)))
+
+
+def _build_invoice_pdf(invoice):
+    """Build PDF buffer for an invoice with proper formatting. Returns BytesIO buffer."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+    )
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Header block: Company name + Invoice title
+    company_name = invoice.company.name or ""
+    invoice_number = invoice.invoice_number or ""
+    invoice_date = invoice.created_at.strftime("%d-%b-%Y") if invoice.created_at else ""
+    invoice_type_name = invoice.invoice_type.name if invoice.invoice_type else ""
+
+    header_style = ParagraphStyle(
+        name="InvoiceHeader",
+        parent=styles["Heading1"],
+        fontSize=22,
+        textColor=colors.HexColor("#2c3e50"),
+        spaceAfter=2,
+    )
+    sub_style = ParagraphStyle(
+        name="InvoiceSub",
+        parent=styles["Normal"],
+        fontSize=11,
+        textColor=colors.HexColor("#7f8c8d"),
+        spaceAfter=12,
+    )
+    story.append(Paragraph(company_name or "Company", header_style))
+    story.append(Paragraph("TAX INVOICE", sub_style))
+    story.append(Spacer(1, 6 * mm))
+
+    # Two columns: Bill From | Invoice details + Bill To
+    party_name = invoice.party.name or ""
+    party_addr = getattr(invoice.party, "address", "") or ""
+
+    left_data = [
+        ["Bill From", ""],
+        [company_name, ""],
+        ["", ""],
+        ["Bill To", ""],
+        [party_name, ""],
+        [party_addr[:60] + ("..." if len(party_addr or "") > 60 else ""), ""],
+    ]
+    left_table = Table(left_data, colWidths=[180, 80])
+    left_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                ("FONTNAME", (0, 3), (0, 3), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#2c3e50")),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ]
+        )
+    )
+
+    right_data = [
+        ["Invoice No", invoice_number],
+        ["Date", invoice_date],
+        ["Type", invoice_type_name],
+    ]
+    right_table = Table(right_data, colWidths=[85, 135])
+    right_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ]
+        )
+    )
+
+    info_wrapper = Table([[left_table, right_table]], colWidths=[260, 220])
+    info_wrapper.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(info_wrapper)
+    story.append(Spacer(1, 10 * mm))
+
+    # Line items table
+    headers = ["#", "Item", "Qty", "Rate", "Disc %", "Amount"]
+    rows = [headers]
+    for idx, inv_item in enumerate(invoice.items.all(), 1):
+        rows.append(
+            [
+                str(idx),
+                (inv_item.item.name if inv_item.item else "")[:40],
+                str(inv_item.quantity),
+                _fmt_currency(inv_item.rate),
+                "%.1f" % (inv_item.discount_percent or 0),
+                _fmt_currency(inv_item.amount),
+            ]
+        )
+
+    items_table = Table(rows, colWidths=[22, 195, 38, 65, 42, 75])
+    items_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#34495e")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("ALIGN", (0, 0), (1, -1), "LEFT"),
+                ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bdc3c7")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+            ]
+        )
+    )
+    story.append(items_table)
+    story.append(Spacer(1, 10 * mm))
+
+    # Totals box
+    total_data = [
+        ["Subtotal", _fmt_currency(invoice.subtotal)],
+        ["Discount", _fmt_currency(invoice.discount_amount)],
+        ["Tax", _fmt_currency(invoice.tax_amount)],
+        ["Total", _fmt_currency(invoice.total)],
+        ["Amount Paid", _fmt_currency(invoice.amount_paid)],
+        ["Balance Due", _fmt_currency(invoice.remaining_balance)],
+    ]
+    total_table = Table(total_data, colWidths=[120, 110])
+    total_table.setStyle(
+        TableStyle(
+            [
+                ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTNAME", (0, -2), (-1, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("LINEABOVE", (0, -2), (-1, -1), 1.5, colors.HexColor("#2c3e50")),
+                ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#ecf0f1")),
+            ]
+        )
+    )
+    story.append(total_table)
+
+    if invoice.notes:
+        story.append(Spacer(1, 10 * mm))
+        notes_style = ParagraphStyle(
+            name="NotesStyle",
+            parent=styles["Normal"],
+            fontSize=9,
+            textColor=colors.HexColor("#2c3e50"),
+        )
+        story.append(Paragraph("<b>Notes:</b> " + (invoice.notes or "").replace("\n", "<br/>"), notes_style))
+
+    # Footer
+    story.append(Spacer(1, 12 * mm))
+    footer_style = ParagraphStyle(
+        name="Footer",
+        parent=styles["Normal"],
+        fontSize=9,
+        textColor=colors.HexColor("#95a5a6"),
+        alignment=1,
+    )
+    story.append(Paragraph("Thank you for your business.", footer_style))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+class InvoicePDFView(APIView):
+    """Generate and download invoice as PDF."""
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrAssigned, HasModulePermission]
+    required_module = "Invoice"
+    required_permission = "view_specific"
+
+    def get(self, request, pk):
+        try:
+            invoice = Invoice.objects.select_related(
+                "company", "party", "invoice_type"
+            ).prefetch_related("items__item").get(pk=pk)
+        except Invoice.DoesNotExist:
+            return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        company_id = invoice.company.id
+        user_context = get_user_context(request, company_id)
+        if user_context[2] is not None:  # error response
+            return user_context[2]
+
+        buffer = _build_invoice_pdf(invoice)
+        filename = f"Invoice_{invoice.invoice_number or invoice.id}.pdf"
+        response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
 
 class UpdateInvoiceView(APIView):
@@ -463,8 +726,9 @@ class UpdateInvoiceView(APIView):
     required_module = "Invoice"
     required_permission = "edit"
     
-
     def put(self, request, pk):
+        # Ensure PaymentStatus records exist
+        ensure_payment_statuses()
         company_id = get_company_id(request, self)
         if not company_id:
             return Response({"detail": "Company ID is required.", "status": 500})

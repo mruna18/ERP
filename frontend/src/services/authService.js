@@ -23,7 +23,7 @@ export const authService = {
 
   // Get current user info
   getCurrentUser: async () => {
-    const response = await api.get('/customer/')
+    const response = await api.get('/customer/me/')
     return response.data
   },
 }
