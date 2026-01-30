@@ -1,0 +1,296 @@
+/* Reuse base from Invoices */
+@import './Invoices.css';
+
+.settings-page {
+  max-width: 720px;
+}
+
+.settings-loading {
+  padding: 3rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.settings-header {
+  margin-bottom: 1.75rem;
+}
+
+.settings-header h1 {
+  margin: 0 0 0.35rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1d21;
+  letter-spacing: -0.02em;
+}
+
+.settings-desc {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e8ecef;
+  padding-bottom: 0;
+}
+
+.settings-tab {
+  padding: 0.65rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  margin-bottom: -1px;
+}
+
+.settings-tab:hover {
+  color: #374151;
+}
+
+.settings-tab.active {
+  color: #2c3e50;
+  border-bottom-color: #2c3e50;
+}
+
+.settings-content {
+  margin-top: 0;
+}
+
+.settings-card {
+  background: #fff;
+  padding: 1.75rem 2rem;
+  border-radius: 8px;
+  border: 1px solid #e8ecef;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.settings-card-title {
+  margin: 0 0 0.35rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1a1d21;
+}
+
+.settings-card-desc {
+  margin: 0 0 1.5rem 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.settings-form .form-group {
+  margin-bottom: 1.25rem;
+}
+
+.settings-form .form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.4rem;
+}
+
+.settings-form .form-group input,
+.settings-form .form-group textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+}
+
+.settings-form .form-group input:focus,
+.settings-form .form-group textarea:focus {
+  outline: none;
+  border-color: #2c3e50;
+  box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.12);
+}
+
+.settings-form .form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.settings-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 560px) {
+  .settings-form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-form-actions {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e8ecef;
+}
+
+.settings-form-actions .btn-primary {
+  padding: 0.65rem 1.35rem;
+  font-size: 0.9375rem;
+}
+
+/* Password / select / toggle */
+.settings-form .form-group .settings-select {
+  width: 100%;
+  max-width: 280px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  background: #fff;
+}
+
+.settings-form .form-group .settings-select:focus {
+  outline: none;
+  border-color: #2c3e50;
+  box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.12);
+}
+
+.form-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.settings-hint-block {
+  margin-top: 1rem;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #e8ecef;
+}
+
+.settings-toggle-row:last-of-type {
+  border-bottom: none;
+}
+
+.settings-toggle-label {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #1a1d21;
+  margin-bottom: 0.2rem;
+}
+
+.settings-toggle-desc {
+  display: block;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.settings-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.settings-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #c8cdd2;
+  border-radius: 24px;
+  transition: background 0.2s;
+}
+
+.settings-slider::before {
+  position: absolute;
+  content: '';
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.settings-switch input:checked + .settings-slider {
+  background-color: #2980b9;
+}
+
+.settings-switch input:checked + .settings-slider::before {
+  transform: translateX(20px);
+}
+
+.settings-switch input:focus-visible + .settings-slider {
+  box-shadow: 0 0 0 2px rgba(41, 128, 185, 0.4);
+}
+
+/* Notifications: sub-options block */
+.settings-notification-options {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e8ecef;
+}
+
+.settings-notification-options-title {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.75rem;
+}
+
+.settings-toggle-row--sub {
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+.settings-toggle-row--sub:not(:last-child) {
+  border-bottom: 1px solid #f0f1f3;
+}
+
+.settings-notification-inapp {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f8fafb;
+  border-radius: 6px;
+  border: 1px solid #e8ecef;
+}
+
+.settings-notification-inapp .settings-toggle-label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.settings-notification-inapp .settings-toggle-desc {
+  font-size: 0.8125rem;
+}

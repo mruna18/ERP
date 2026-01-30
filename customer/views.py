@@ -125,6 +125,35 @@ class CurrentCustomerView(APIView):
             return Response({'error': 'Customer profile not found'}, status=404)
 
 
+# ----------- Change Password (current user) -----------
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+
+        if not current_password or not new_password:
+            return Response(
+                {'error': 'Current password and new password are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if len(new_password) < 8:
+            return Response(
+                {'error': 'New password must be at least 8 characters.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = request.user
+        if not user.check_password(current_password):
+            return Response({'error': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({'msg': 'Password changed successfully.'}, status=status.HTTP_200_OK)
+
+
 # ----------- List All Customers -----------
 class CustomerListView(APIView):
     permission_classes =[IsAuthenticated, IsSuperAdmin]
@@ -160,25 +189,33 @@ class CustomerUpdateView(APIView):
         except Customer.DoesNotExist:
             return Response({'error': 'Customer not found'}, status=404)
 
+        if not (request.user.is_superuser or customer.user_id == request.user.id):
+            return Response({'error': 'You can only update your own profile.'}, status=403)
+
         serializer = CustomerSerializer(customer, data=request.data, partial=True)
         if serializer.is_valid():
             data = serializer.validated_data
+            raw = request.data
 
             # Update Customer fields
-            customer.phone = data.get('phone', customer.phone)
-            customer.address = data.get('address', customer.address)
-            customer.company_limit = data.get('company_limit', customer.company_limit)
+            customer.phone = data.get('phone', raw.get('phone', customer.phone))
+            customer.address = data.get('address', raw.get('address', customer.address))
+            customer.company_limit = data.get('company_limit', raw.get('company_limit', customer.company_limit))
             customer.save()
 
-            # Update related User fields
+            # Update related User fields (from request; serializer has these as read_only)
             user = customer.user
-            user.username = data.get('username', user.username)
-            user.first_name = data.get('first_name', user.first_name)
-            user.last_name = data.get('last_name', user.last_name)
-            user.email = data.get('email', user.email)
+            if 'username' in raw:
+                user.username = raw.get('username', user.username)
+            if 'first_name' in raw:
+                user.first_name = raw.get('first_name', user.first_name)
+            if 'last_name' in raw:
+                user.last_name = raw.get('last_name', user.last_name)
+            if 'email' in raw:
+                user.email = raw.get('email', user.email)
             user.save()
 
-            return Response({'msg': 'Customer updated successfully'})
+            return Response({'msg': 'Profile updated successfully'})
         return Response(serializer.errors, status=400)
 
 

@@ -92,8 +92,27 @@ export const AuthProvider = ({ children }) => {
   }
 
   const selectCompany = (companyId) => {
+    if (companyId == null || companyId === '') {
+      localStorage.removeItem('selectedCompanyId')
+      setSelectedCompany(null)
+      return
+    }
     localStorage.setItem('selectedCompanyId', companyId)
     fetchCompany(companyId)
+  }
+
+  const clearCompany = () => {
+    localStorage.removeItem('selectedCompanyId')
+    setSelectedCompany(null)
+  }
+
+  const refreshUser = async () => {
+    try {
+      const userData = await authService.getCurrentUser()
+      setUser(userData)
+    } catch (error) {
+      console.error('Failed to refresh user', error)
+    }
   }
 
   const value = {
@@ -104,6 +123,8 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     selectCompany,
+    clearCompany,
+    refreshUser,
     isAuthenticated: !!user,
   }
 

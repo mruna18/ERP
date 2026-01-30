@@ -40,6 +40,16 @@ const Sidebar = () => {
             )
           })}
         </ul>
+        <ul className="sidebar-nav-footer">
+          <li>
+            <Link
+              to="/settings"
+              className={location.pathname === '/settings' ? 'active' : ''}
+            >
+              <span className="label">Settings</span>
+            </Link>
+          </li>
+        </ul>
       </nav>
     </aside>
   )

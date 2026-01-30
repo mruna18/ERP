@@ -5,8 +5,21 @@ import api from '../services/api'
 import { toast } from 'react-toastify'
 import './Dashboard.css'
 
+const NOTIFICATIONS_KEY = 'app_notifications'
+
+function isReportSummaryEnabled() {
+  try {
+    const raw = localStorage.getItem(NOTIFICATIONS_KEY)
+    if (raw) {
+      const data = JSON.parse(raw)
+      return data.reportSummary === true
+    }
+  } catch (_) {}
+  return false
+}
+
 const Dashboard = () => {
-  const { user, selectedCompany, selectCompany } = useAuth()
+  const { user, selectedCompany, selectCompany, clearCompany } = useAuth()
   const navigate = useNavigate()
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
@@ -14,6 +27,8 @@ const Dashboard = () => {
   const [statsError, setStatsError] = useState(null)
   const [dashboardStats, setDashboardStats] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [companyToDelete, setCompanyToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     gst_number: '',
@@ -104,6 +119,27 @@ const Dashboard = () => {
     })
   }
 
+  const handleDeleteCompany = async () => {
+    if (!companyToDelete) return
+    setDeleting(true)
+    try {
+      await api.delete(`/company/${companyToDelete.id}/delete/`, {
+        headers: { company: companyToDelete.id },
+      })
+      toast.success('Company deleted successfully')
+      if (selectedCompany?.id === companyToDelete.id) {
+        clearCompany()
+      }
+      setCompanyToDelete(null)
+      fetchCompanies()
+    } catch (error) {
+      const msg = error.response?.data?.error || error.response?.data?.message || 'Failed to delete company'
+      toast.error(msg)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const formatCurrency = (value) => {
     const num = Number(value || 0)
     try {
@@ -121,48 +157,76 @@ const Dashboard = () => {
     <div className="dashboard">
       <div className="dashboard-content">
         <div className="company-section">
-          <div className="company-section-header">
-            <h2 className="company-section-title">Select Company</h2>
-            <p className="company-section-desc">Choose a company to work with or create a new one.</p>
-            <div className="company-section-actions">
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(true)}
-                className="btn-create-company"
-              >
-                Create Company
-              </button>
+          <header className="company-section-header">
+            <div className="company-section-heading">
+              <h2 className="company-section-title">Select Company</h2>
+              <p className="company-section-desc">Choose a company to work with or create a new one.</p>
             </div>
-          </div>
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              className="btn-create-company"
+            >
+              + Create Company
+            </button>
+          </header>
           {loading ? (
             <div className="company-loading">
               <span className="company-loading-text">Loading companies...</span>
             </div>
           ) : companies.length === 0 ? (
             <div className="company-empty">
-              <p className="company-empty-text">No companies found. Create a company to get started.</p>
+              <p className="company-empty-text">No companies yet. Create your first company to get started.</p>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
                 className="btn-create-company btn-create-company--primary"
               >
-                Create Your First Company
+                + Create Company
               </button>
             </div>
           ) : (
             <div className="company-list">
-              {companies.map((company) => (
-                <button
-                  key={company.id}
-                  type="button"
-                  className={`company-card ${selectedCompany?.id === company.id ? 'company-card--selected' : ''}`}
-                  onClick={() => handleCompanySelect(company.id)}
-                >
-                  <span className="company-card-name">{company.name}</span>
-                  <span className="company-card-meta">GST: {company.gst_number}</span>
-                  <span className="company-card-meta">Phone: {company.phone}</span>
-                </button>
-              ))}
+              {companies.map((company) => {
+                const isSelected = selectedCompany?.id === company.id
+                return (
+                  <div
+                    key={company.id}
+                    className={`company-card-wrap ${isSelected ? 'is-selected' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="company-card"
+                      onClick={() => handleCompanySelect(company.id)}
+                    >
+                      {isSelected && <span className="company-card-badge">Selected</span>}
+                      <span className="company-card-name">{company.name}</span>
+                      <dl className="company-card-meta-list">
+                        <div className="company-card-meta-row">
+                          <dt>GST</dt>
+                          <dd>{company.gst_number}</dd>
+                        </div>
+                        <div className="company-card-meta-row">
+                          <dt>Phone</dt>
+                          <dd>{company.phone}</dd>
+                        </div>
+                      </dl>
+                    </button>
+                    <button
+                      type="button"
+                      className="company-card-delete"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setCompanyToDelete(company)
+                      }}
+                      title="Delete company"
+                      aria-label="Delete company"
+                    >
+                      <span className="company-card-delete-icon" aria-hidden>×</span>
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -192,6 +256,68 @@ const Dashboard = () => {
               </div>
             ) : dashboardStats ? (
               <>
+                {isReportSummaryEnabled() && (
+                <div className="report-summary-card">
+                  <div className="report-summary-header">
+                    <h3 className="report-summary-title">Report summary</h3>
+                    <p className="report-summary-desc">Key figures for the selected company.</p>
+                  </div>
+                  <div className="report-summary-body">
+                    <div className="report-summary-block">
+                      <h4 className="report-summary-block-title">Activity</h4>
+                      <div className="report-summary-rows">
+                        <div className="report-summary-row">
+                          <span className="report-summary-label">Total Sales</span>
+                          <span className="report-summary-value">{dashboardStats.total_sales ?? 0}</span>
+                        </div>
+                        <div className="report-summary-row">
+                          <span className="report-summary-label">Total Purchases</span>
+                          <span className="report-summary-value">{dashboardStats.total_purchases ?? 0}</span>
+                        </div>
+                        <div className="report-summary-row">
+                          <span className="report-summary-label">Today Sales</span>
+                          <span className="report-summary-value">{dashboardStats.today_sales ?? 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="report-summary-block">
+                      <h4 className="report-summary-block-title">Cash flow</h4>
+                      <div className="report-summary-rows">
+                        <div className="report-summary-row">
+                          <span className="report-summary-label">Total Received</span>
+                          <span className="report-summary-value report-summary-value--in">{formatCurrency(dashboardStats.total_received)}</span>
+                        </div>
+                        <div className="report-summary-row">
+                          <span className="report-summary-label">Total Paid</span>
+                          <span className="report-summary-value report-summary-value--out">{formatCurrency(dashboardStats.total_paid)}</span>
+                        </div>
+                        <div className="report-summary-row">
+                          <span className="report-summary-label">Receivables</span>
+                          <span className="report-summary-value report-summary-value--amount">{formatCurrency(dashboardStats.receivables)}</span>
+                        </div>
+                        <div className="report-summary-row">
+                          <span className="report-summary-label">Payables</span>
+                          <span className="report-summary-value report-summary-value--amount">{formatCurrency(dashboardStats.payables)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="report-summary-block">
+                      <h4 className="report-summary-block-title">Balances</h4>
+                      <div className="report-summary-rows">
+                        <div className="report-summary-row">
+                          <span className="report-summary-label">Cash</span>
+                          <span className="report-summary-value report-summary-value--balance">{formatCurrency(dashboardStats.cash_balance)}</span>
+                        </div>
+                        <div className="report-summary-row">
+                          <span className="report-summary-label">Bank</span>
+                          <span className="report-summary-value report-summary-value--balance">{formatCurrency(dashboardStats.bank_balance)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                )}
+
                 <div className="kpi-grid">
                   <button type="button" className="kpi-card" onClick={() => navigate('/invoices')}>
                     <div className="kpi-label">Total Sales (count)</div>
@@ -557,6 +683,72 @@ const Dashboard = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Company Confirmation Modal */}
+        {companyToDelete && (
+          <div
+            className="modal-overlay"
+            onClick={() => !deleting && setCompanyToDelete(null)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 1000,
+            }}
+          >
+            <div
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: 'white',
+                padding: '2rem',
+                borderRadius: '10px',
+                width: '90%',
+                maxWidth: '420px',
+              }}
+            >
+              <h2 style={{ marginTop: 0, marginBottom: '0.5rem' }}>Delete company?</h2>
+              <p style={{ color: '#7f8c8d', marginBottom: '1.5rem' }}>
+                <strong>{companyToDelete.name}</strong> will be deactivated. You will no longer be able to use it or see its data. This cannot be undone.
+              </p>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => !deleting && setCompanyToDelete(null)}
+                  disabled={deleting}
+                  className="btn-secondary"
+                  style={{ padding: '0.75rem 1.5rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteCompany}
+                  disabled={deleting}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#c0392b',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: deleting ? 'not-allowed' : 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: 500,
+                    opacity: deleting ? 0.7 : 1,
+                  }}
+                >
+                  {deleting ? 'Deleting...' : 'Delete company'}
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -1,7 +1,20 @@
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+
+const THEME_KEY = 'app_theme'
+
+function applyTheme(theme) {
+  const root = document.documentElement
+  root.classList.remove('theme-light', 'theme-dark')
+  if (theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    root.classList.add('theme-dark')
+  } else {
+    root.classList.add('theme-light')
+  }
+}
 
 // Pages
 import Login from './pages/Login'
@@ -11,10 +24,16 @@ import Invoices from './pages/Invoices'
 import Items from './pages/Items'
 import Parties from './pages/Parties'
 import Payments from './pages/Payments'
+import Settings from './pages/Settings'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 
 function App() {
+  useEffect(() => {
+    const stored = localStorage.getItem(THEME_KEY) || 'light'
+    applyTheme(stored)
+  }, [])
+
   return (
     <AuthProvider>
       <Router>
@@ -68,6 +87,16 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Payments />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Settings />
                   </Layout>
                 </ProtectedRoute>
               }

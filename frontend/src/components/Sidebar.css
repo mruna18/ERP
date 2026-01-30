@@ -44,8 +44,16 @@
 
 .sidebar-nav {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   padding: 0.5rem 0;
+}
+
+.sidebar-nav-footer {
+  margin-top: auto;
+  border-top: 1px solid #34495e;
+  padding-top: 0.5rem;
 }
 
 .sidebar-nav ul {

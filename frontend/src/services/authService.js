@@ -26,4 +26,19 @@ export const authService = {
     const response = await api.get('/customer/me/')
     return response.data
   },
+
+  // Update profile (customer id + { first_name, last_name, email, phone, address })
+  updateProfile: async (customerId, data) => {
+    const response = await api.put(`/customer/${customerId}/update/`, data)
+    return response.data
+  },
+
+  // Change password (current_password, new_password)
+  changePassword: async (currentPassword, newPassword) => {
+    const response = await api.post('/customer/me/change-password/', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    })
+    return response.data
+  },
 }
