@@ -2,3 +2,4 @@ myenv
 .env
 db.sqlite3
 myenv311
+env/
